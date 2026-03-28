@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Download concluído</title>
+</head>
+
+<body>
+
+<script>
+
+const MAX_DOWNLOADS = 3;
+
+async function baixarPDF(session_id, id){
+
+    const resp = await fetch(`/api/gerar-pdfs?session_id=${session_id}&id=${id}`);
+
+    if(!resp.ok){
+        alert("Erro ao gerar download.");
+        return;
+    }
+
+    // 🔥 PEGA O NOME DO BACKEND
+    const contentDisposition = resp.headers.get("Content-Disposition");
+
+    let nomeArquivo = "orcamento.zip"; // fallback
+
+    if(contentDisposition){
+        const match = contentDisposition.match(/filename="(.+)"/);
+        if(match && match[1]){
+            nomeArquivo = match[1];
+        }
+    }
+
+    const blob = await resp.blob();
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+
+    // 🔥 AGORA SIM: USA O NOME CORRETO
+    a.download = nomeArquivo;
+
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    window.URL.revokeObjectURL(url);
+}
+
+async function iniciar(){
+
+    const params = new URLSearchParams(window.location.search);
+
+    const session_id = params.get("session_id");
+    const id = params.get("id");
+
+    if(!session_id || !id){
+
+        document.body.innerHTML =
+        "<h2>Erro: parâmetros de pagamento não encontrados.</h2>";
+
+        return;
+    }
+
+    const chave = "downloads_" + session_id;
+
+    document.body.innerHTML = `
+    <div style="font-family:Arial;text-align:center;margin-top:60px">
+
+        <h2>Download concluído com sucesso.</h2>
+
+        <p>Verifique a pasta de downloads do seu navegador.</p>
+
+        <br>
+
+        <button id="baixar">Baixar novamente</button>
+
+        <br><br>
+
+        <button id="voltar">Voltar para o Orçamento Fácil</button>
+
+        <br><br>
+
+    </div>
+    `;
+
+    let downloads = Number(sessionStorage.getItem(chave)) || 0;
+
+    // 🔥 DOWNLOAD AUTOMÁTICO
+    if(downloads < MAX_DOWNLOADS){
+
+        await baixarPDF(session_id, id);
+
+        downloads++;
+
+        sessionStorage.setItem(chave, downloads);
+    }
+
+    // 🔁 BOTÃO BAIXAR NOVAMENTE
+    document.getElementById("baixar").onclick = async function(){
+
+        let downloads = Number(sessionStorage.getItem(chave)) || 0;
+
+        if(downloads >= MAX_DOWNLOADS){
+            alert("Limite de downloads atingido.");
+            return;
+        }
+
+        await baixarPDF(session_id, id);
+
+        downloads++;
+
+        sessionStorage.setItem(chave, downloads);
+    };
+
+    // 🔙 VOLTAR
+    document.getElementById("voltar").onclick = function(){
+        window.location.href = "https://orcamentofacil.app.br/";
+    };
+
+}
+
+window.onload = iniciar;
+
+</script>
+
+</body>
+</html>
