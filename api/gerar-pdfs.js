@@ -1,19 +1,13 @@
-import Stripe from "stripe";
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
 import archiver from "archiver";
-import { list } from "@vercel/blob";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
-// 🔥 GERA CÓDIGO ÚNICO
 function gerarCodigoUnico() {
   const tempo = Date.now().toString(36);
   const aleatorio = Math.random().toString(36).substring(2, 6);
   return (tempo + aleatorio).toUpperCase();
 }
 
-// 🔥 NORMALIZA NOME
 function normalizarNome(nome) {
   return nome
     .normalize("NFD")
@@ -24,47 +18,22 @@ function normalizarNome(nome) {
 }
 
 export default async function handler(req, res) {
+
+  if (req.method !== "POST") {
+    return res.status(405).end();
+  }
+
   try {
 
-    const { session_id, id } = req.query;
+    const { htmlCliente, htmlControle, nomeCliente } = req.body;
 
-    if (!session_id || !id) {
-      return res.status(400).json({ error: "session_id ou id ausente" });
+    if (!htmlCliente || !htmlControle) {
+      return res.status(400).json({ error: "HTML não enviado" });
     }
 
-    const session = await stripe.checkout.sessions.retrieve(session_id);
-
-    if (session.payment_status !== "paid") {
-      return res.status(400).json({ error: "Pagamento não confirmado" });
-    }
-
-    const arquivos = await list({
-      prefix: `orcamentos/${id}`,
-      token: process.env.BLOB_READ_WRITE_TOKEN
-    });
-
-    if (!arquivos.blobs || arquivos.blobs.length === 0) {
-      return res.status(404).json({ error: "Arquivo não encontrado no Blob" });
-    }
-
-    const url = arquivos.blobs[0].url;
-
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`
-      }
-    });
-
-    if (!response.ok) {
-      return res.status(500).json({ error: "Falha ao ler JSON do Blob" });
-    }
-
-    const dados = await response.json();
-
-    let nomeCliente = normalizarNome(dados.nomeCliente || "cliente");
-
+    const nome = normalizarNome(nomeCliente || "cliente");
     const dataHoje = new Date().toISOString().slice(0, 10);
-    const codigoUnico = gerarCodigoUnico();
+    const codigo = gerarCodigoUnico();
 
     const browser = await puppeteer.launch({
       args: chromium.args,
@@ -74,81 +43,17 @@ export default async function handler(req, res) {
 
     const page = await browser.newPage();
 
-    // ===== PDF CLIENTE =====
-await page.setContent(dados.htmlCliente, { waitUntil: "load" });
+    // PDF cliente
+    await page.setContent(htmlCliente, { waitUntil: "load" });
+    const pdfCliente = await page.pdf({ format: "A4" });
 
-const pdfCliente = Buffer.from(
-  await page.pdf({
-    format: "A4",
-
-    margin: {
-      top: "30mm",
-      bottom: "25mm",
-      left: "20mm",
-      right: "20mm"
-    },
-
-    displayHeaderFooter: true,
-
-    headerTemplate: `
-      <div style="width:100%; text-align:center; font-size:10px; color:#999;">
-      </div>
-    `,
-
-    footerTemplate: `
-      <div style="width:100%; font-size:10px; color:#999; padding:0 20px; display:flex; justify-content:space-between;">
-        
-        <div>Orçamento Fácil</div>
-        
-        <div>
-          Página <span class="pageNumber"></span> de <span class="totalPages"></span>
-        </div>
-        
-      </div>
-    `
-  })
-);
-
-
-// ===== PDF CONTROLE =====
-await page.setContent(dados.htmlControle, { waitUntil: "load" });
-
-const pdfControle = Buffer.from(
-  await page.pdf({
-    format: "A4",
-
-    margin: {
-      top: "25mm",
-      bottom: "20mm",
-      left: "18mm",
-      right: "18mm"
-    },
-
-    displayHeaderFooter: true,
-
-    headerTemplate: `
-      <div style="width:100%; text-align:center; font-size:9px; color:#aaa;">
-        Documento interno
-      </div>
-    `,
-
-    footerTemplate: `
-      <div style="width:100%; font-size:9px; color:#aaa; padding:0 15px; display:flex; justify-content:space-between;">
-        
-        <div>Controle interno</div>
-        
-        <div>
-          Página <span class="pageNumber"></span> / <span class="totalPages"></span>
-        </div>
-        
-      </div>
-    `
-  })
-);
+    // PDF controle
+    await page.setContent(htmlControle, { waitUntil: "load" });
+    const pdfControle = await page.pdf({ format: "A4" });
 
     await browser.close();
 
-    const nomeZip = `orcamento-${nomeCliente}-${dataHoje}-${codigoUnico}.zip`;
+    const nomeZip = `orcamento-${nome}-${dataHoje}-${codigo}.zip`;
 
     res.setHeader("Content-Type", "application/zip");
     res.setHeader(
@@ -160,17 +65,17 @@ const pdfControle = Buffer.from(
     archive.pipe(res);
 
     archive.append(pdfCliente, {
-  name: `orcamento-${nomeCliente}-${dataHoje}-${codigoUnico}.pdf`
-});
+      name: `orcamento-${nome}.pdf`
+    });
 
-archive.append(pdfControle, {
-  name: `controle-${nomeCliente}-${dataHoje}-${codigoUnico}.pdf`
-});
+    archive.append(pdfControle, {
+      name: `controle-${nome}.pdf`
+    });
 
     archive.finalize();
 
   } catch (err) {
-    console.error("ERRO:", err);
+    console.error(err);
 
     res.status(500).json({
       error: "Erro ao gerar PDFs",

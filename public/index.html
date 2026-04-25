@@ -2171,13 +2171,9 @@ async function gerarPDFs(){
 
     const htmlCliente = prepararPDFCliente();
     const htmlControle = prepararPDFControle();
-
     const nomeCliente = document.getElementById("cliente_nome").value.trim();
 
-    // 🔥 DETECTA SE TEM LOGO
-    const temLogo = !!logoBase64;
-
-    const resp = await fetch("/api/criar-checkout",{
+    const resp = await fetch("/api/gerar-pdfs",{
         method:"POST",
         headers:{
             "Content-Type":"application/json"
@@ -2185,15 +2181,38 @@ async function gerarPDFs(){
         body:JSON.stringify({
             htmlCliente,
             htmlControle,
-            nomeCliente,
-            temLogo // 🔥 ENVIA PRO BACKEND
+            nomeCliente
         })
     });
 
-    const data = await resp.json();
+    if(!resp.ok){
+        alert("Erro ao gerar PDF");
+        return;
+    }
 
-    window.location.href = data.url;
+    const contentDisposition = resp.headers.get("Content-Disposition");
 
+    let nomeArquivo = "orcamento.zip";
+
+    if(contentDisposition){
+        const match = contentDisposition.match(/filename="(.+)"/);
+        if(match && match[1]){
+            nomeArquivo = match[1];
+        }
+    }
+
+    const blob = await resp.blob();
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nomeArquivo;
+
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    window.URL.revokeObjectURL(url);
 }
 
 // ---------- FUNÇÃO DE ENVIO AO BACKEND ----------
