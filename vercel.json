@@ -1,9 +1,10 @@
 {
-  "rewrites": [
+  "redirects": [
     {
       "source": "/",
       "has": [{ "type": "host", "value": "of-painel-7f2b.vercel.app" }],
-      "destination": "/api/painel-cupons"
+      "destination": "/api/painel-cupons",
+      "permanent": false
     }
   ]
 }
