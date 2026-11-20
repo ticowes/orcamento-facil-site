@@ -361,7 +361,7 @@ Telefone:
 <!-- 👇 LOGO AGORA DENTRO DO BLOCO -->
 <div style="margin-top:15px;">
 
-    <label><strong>Insira o Logo da sua Empresa por + R$ 0,19</strong></label><br><br>
+    <label><strong>Insira o Logo da sua Empresa<span id="precoLogomarca"></span></strong></label><br><br>
 
     <input type="file" id="empresa_logo" accept="image/*" onchange="carregarLogo(event)" style="display:none;">
 
@@ -508,8 +508,11 @@ Remover logo
 
 
     <!-- BLOCO 9 -->
-    <div class="blocoPrincipal">
-        <h2>Prévia do Orçamento</h2>
+    <div class="blocoPrincipal" id="secaoPrevia">
+        <div class="titulo-previa">
+            <h2>Prévia do Orçamento</h2>
+            <span id="acrescimoModelo" hidden></span>
+        </div>
 
         <style id="estilosPaginasCliente">
             .pagina-cliente {
@@ -528,6 +531,72 @@ Remover logo
             }
             .pagina-cliente .previewTextoMenor { font-size:12px; }
             .pagina-cliente table { table-layout:fixed; }
+            .folha-nova { --cor-modelo:#263446; }
+            .folha-nova .titulo-documento { max-width:none !important; text-align:left !important; }
+            .folha-nova h2 { color:var(--cor-modelo); font-size:27px; margin:0 0 20px !important; }
+            .folha-nova .dados-documento {
+                display:grid;
+                grid-template-columns:repeat(2,minmax(0,1fr));
+                gap:12px 20px;
+                margin-bottom:14px;
+                font-size:12px;
+            }
+            .folha-nova .empresa-documento { margin:0 !important; font-weight:bold; }
+            .folha-nova .empresa-documento > div:first-child { font-size:15px !important; }
+            .folha-nova .datas-documento {
+                grid-column:1 / -1;
+                margin:0 !important;
+                padding:8px 0;
+                border-block:1px solid #cfd6dc;
+            }
+            .folha-nova td { border-bottom:1px solid #d9dde1; }
+            .folha-nova td:first-child { width:34%; text-align:left; }
+            .folha-nova tr:first-child td { color:var(--cor-modelo); border-bottom:2px solid var(--cor-modelo); }
+            .folha-nova .total-documento { color:var(--cor-modelo); }
+            .modelo-centralizado .titulo-documento { text-align:center !important; }
+            .modelo-centralizado .titulo-documento:after {
+                content:"";
+                display:block;
+                width:50px;
+                border-bottom:3px solid var(--cor-modelo);
+                margin:0 auto 16px;
+            }
+            .modelo-centralizado .dados-documento { text-align:center; }
+            .modelo-centralizado .datas-documento { justify-content:center; }
+            .modelo-grade .titulo-documento h2 { border:1px solid var(--cor-modelo); padding:9px 12px; }
+            .modelo-grade table td { border:1px solid #87919b; }
+            .modelo-grade tr:first-child { background:#eef1f4; }
+            .modelo-grade .total-documento { border:1px solid #87919b; padding:8px 12px; }
+            .modelo-alternado { --cor-modelo:#34594a; }
+            .modelo-alternado h2 { border-bottom:3px solid var(--cor-modelo); padding-bottom:10px; }
+            .modelo-alternado tr:nth-child(even) { background:#eaeeeb; }
+            .modelo-faixa { --cor-modelo:#284f76; }
+            .modelo-faixa .titulo-documento h2 { color:white; background:var(--cor-modelo); padding:13px 16px; }
+            .modelo-faixa tr:first-child { background:#eaf0f6; }
+            .modelo-ficha { --cor-modelo:#674b37; }
+            .modelo-ficha .dados-documento > div { border:1px solid #d6c7bb; background:#fbf8f5; padding:10px; }
+            .modelo-ficha .dados-documento .datas-documento { padding:8px 10px; }
+            .modelo-ficha .total-documento { background:#f3ece5; padding:10px; }
+            .modelo-lateral { --cor-modelo:#38445a; }
+            .modelo-lateral h2 { border-bottom:1px solid #b2b9c4; padding-bottom:10px; }
+            .modelo-lateral .dados-documento {
+                float:left;
+                width:29%;
+                display:block;
+                margin:0 3% 0 0;
+                padding:10px;
+                border-left:4px solid var(--cor-modelo);
+                background:#eef0f4;
+            }
+            .modelo-lateral .dados-documento > div + div { margin-top:9px !important; }
+            .modelo-lateral .datas-documento { display:block !important; }
+            .modelo-lateral .pagina-cliente-conteudo:has(.dados-documento) > table {
+                width:68% !important;
+                margin:0 0 0 32% !important;
+                font-size:11px !important;
+            }
+            .modelo-lateral .pagina-cliente-conteudo:has(.dados-documento) > table td { padding:6px 3px !important; }
+            .modelo-lateral .pagina-cliente-conteudo:has(.dados-documento) > :is(.total-documento,[data-descricao-cliente]) { margin-left:32%; }
             .pagina-cliente-rodape {
                 position:absolute;
                 bottom:9mm;
@@ -546,6 +615,48 @@ Remover logo
         </style>
         <style>
             #previewCliente { overflow:auto; user-select:none; }
+            #secaoPrevia.modelo-com-acrescimo { background:#000; color:#fff; }
+            .titulo-previa,.acoes-pdf { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+            .titulo-previa { justify-content:space-between; }
+            #acrescimoModelo,#precoGeracao { font-weight:bold; font-size:1.25rem; }
+            .acoes-pdf :is(#botaoGerarPDF,#precoGeracao) { font-size:1.25rem; }
+            #previewConteudo { touch-action:pan-y pinch-zoom; cursor:grab; }
+            .navegacao-modelos {
+                position:sticky;
+                bottom:0;
+                z-index:11;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                gap:5px;
+                padding:5px;
+                background:#f4efe8;
+                color:#222;
+                margin-top:10px;
+                border-radius:6px;
+            }
+            .modelo-com-acrescimo .navegacao-modelos { background:#242424; color:#fff; }
+            .navegacao-modelos button {
+                width:30px;
+                height:36px;
+                padding:0;
+                border:0;
+                color:inherit;
+                background:transparent;
+                cursor:pointer;
+            }
+            #pontosModelos { display:flex; justify-content:center; }
+            #pontosModelos button::before {
+                content:"";
+                display:inline-block;
+                width:9px;
+                height:9px;
+                border:1px solid currentColor;
+                border-radius:50%;
+            }
+            #pontosModelos button[aria-current="true"]::before { background:currentColor; }
+            #nomeModelo { text-align:center; margin:8px 0; }
+            @media (max-width:350px) { .navegacao-modelos button { width:24px; } }
             #previewConteudo { display:grid; gap:20px; justify-items:start; }
             #previewConteudo .pagina-cliente {
                 outline:1px solid #a5a4a4;
@@ -564,6 +675,12 @@ Remover logo
         <div id="previewCliente">
             <div id="previewConteudo"></div>
         </div>
+        <nav class="navegacao-modelos" aria-label="Modelos de orçamento">
+            <button type="button" id="modeloAnterior" aria-label="Modelo anterior">‹</button>
+            <div id="pontosModelos"></div>
+            <button type="button" id="modeloSeguinte" aria-label="Próximo modelo">›</button>
+        </nav>
+        <p id="nomeModelo" aria-live="polite"></p>
 
         <p>
             <label for="alinhamentoPaginacao">Numeração das páginas</label>
@@ -574,7 +691,10 @@ Remover logo
             </select>
         </p>
         <br>
-        <button id="botaoGerarPDF" onclick="gerarPDFs()">Gerar PDFs</button>
+        <div class="acoes-pdf">
+            <button id="botaoGerarPDF" onclick="gerarPDFs()" disabled>Gerar PDFs</button>
+            <output id="precoGeracao" aria-live="polite" aria-label="Valor total para gerar os PDFs"></output>
+        </div>
     </div>
 
 </div>
@@ -591,7 +711,7 @@ Remover logo
     </p>
 
     <p>
-        <strong>Valor por geração:</strong> R$ 4,90
+        <strong>Valor por geração:</strong> <span id="precoBaseGeracao"></span>
     </p>
 
     <p>
@@ -654,6 +774,9 @@ Remover logo
 <script>
 let contadorArea = 0;
 let contadorItens = 0;
+let modeloSelecionado = "original";
+let catalogoModelos = [];
+let calcularPrecoGeracao;
 
 const idSessao = sessionStorage.getItem("orcamentoSessao") || Date.now().toString();
 sessionStorage.setItem("orcamentoSessao", idSessao);
@@ -665,6 +788,9 @@ window.onload = function(){
     if(dadosSalvos){
 
         const dados = JSON.parse(dadosSalvos);
+        if(catalogoModelos.some(modelo => modelo.id === dados.modeloSelecionado)){
+            modeloSelecionado = dados.modeloSelecionado;
+        }
 
         if(dados.logoBase64){
     logoBase64 = dados.logoBase64;
@@ -1690,7 +1816,7 @@ function atualizarPreview(){
     : "ORÇAMENTO";
 
 html += `
-<div style="
+<div class="titulo-documento" style="
     text-align:center;
     max-width:70%;
     margin:0 auto;
@@ -1702,10 +1828,12 @@ html += `
 </div>
 `;
 
+    if(modeloSelecionado !== "original") html += '<div class="dados-documento">';
+
     // EMPRESA
     if(empresaNome || empresaDoc || empresaTel){
 
-        html += `<div style="margin-top:20px;">`;
+        html += `<div class="empresa-documento" style="margin-top:20px;">`;
 
         if(empresaNome)
             html += `<div style="font-size:22px; font-weight:bold;">${escaparTextoCliente(empresaNome)}</div>`;
@@ -1720,13 +1848,14 @@ html += `
 
         if(empresaTel) html += `Telefone: ${escaparTextoCliente(empresaTel)}<br>`;
 
-        html += `</div></div><br>`;
+        html += `</div></div>`;
+        if(modeloSelecionado === "original") html += "<br>";
     }
 
     // CLIENTE
     if(clienteNome || clienteDoc || clienteTel || clienteEnd){
 
-        html += `<div class="previewTextoMenor">`;
+        html += `<div class="previewTextoMenor cliente-documento">`;
         html += `<strong>Dados do Cliente</strong><br>`;
 
         if(clienteNome) html += `Nome: ${escaparTextoCliente(clienteNome)}<br>`;
@@ -1745,11 +1874,12 @@ html += `
 
     // INFO
     html += `
-    <div class="previewTextoMenor" style="display:flex; gap:30px; flex-wrap:wrap; margin-bottom:15px;">
+    <div class="previewTextoMenor datas-documento" style="display:flex; gap:30px; flex-wrap:wrap; margin-bottom:15px;">
         <div><strong>Data:</strong> ${escaparTextoCliente(data)}</div>
         <div><strong>Vencimento:</strong> ${escaparTextoCliente(venc)}</div>
     </div>
     `;
+    if(modeloSelecionado !== "original") html += "</div>";
 
     // TABELA
     html += `
@@ -1806,7 +1936,7 @@ html += `
     html += `</table>`;
 
     html += `
-    <div style="text-align:right; font-size:20px; font-weight:bold; margin-top:20px;">
+    <div class="total-documento" style="text-align:right; font-size:20px; font-weight:bold; margin-top:20px;">
         Total Geral: R$ ${formatar(totalGeral)}
     </div>
     `;
@@ -1820,8 +1950,62 @@ html += `
     }
 
     paginarPreviewCliente(html);
+    atualizarPrecoEModelo();
 
     salvarNoStorage();
+}
+
+const moedaGeracao = new Intl.NumberFormat("pt-BR", { style:"currency", currency:"BRL" });
+
+function configurarModelos(modelos, precos, calcularPreco){
+    catalogoModelos = modelos;
+    calcularPrecoGeracao = calcularPreco;
+    document.getElementById("precoLogomarca").textContent = " por + " + moedaGeracao.format(precos.logo / 100);
+    document.getElementById("precoBaseGeracao").textContent = moedaGeracao.format(precos.base / 100);
+    const pontos = document.getElementById("pontosModelos");
+    for(const modelo of modelos){
+        const botao = document.createElement("button");
+        botao.type = "button";
+        botao.dataset.modelo = modelo.id;
+        botao.title = modelo.nome;
+        botao.setAttribute("aria-label", modelo.nome);
+        botao.addEventListener("click", () => selecionarModelo(modelo.id));
+        pontos.append(botao);
+    }
+    document.getElementById("modeloAnterior").onclick = () => navegarModelo(-1);
+    document.getElementById("modeloSeguinte").onclick = () => navegarModelo(1);
+    document.getElementById("botaoGerarPDF").disabled = false;
+    atualizarPrecoEModelo();
+}
+
+function selecionarModelo(id){
+    if(id === modeloSelecionado) return;
+    modeloSelecionado = id;
+    atualizarPreview();
+    const secao = document.getElementById("secaoPrevia");
+    if(secao.getBoundingClientRect().top < 0) secao.scrollIntoView({ block:"start" });
+}
+
+function navegarModelo(direcao){
+    const indice = catalogoModelos.findIndex(modelo => modelo.id === modeloSelecionado);
+    if(indice < 0) return;
+    const proximo = (indice + direcao + catalogoModelos.length) % catalogoModelos.length;
+    selecionarModelo(catalogoModelos[proximo].id);
+}
+
+function atualizarPrecoEModelo(){
+    const modelo = catalogoModelos.find(opcao => opcao.id === modeloSelecionado);
+    if(!modelo) return;
+    const comAcrescimo = modelo.acrescimo > 0;
+    document.getElementById("secaoPrevia").classList.toggle("modelo-com-acrescimo", comAcrescimo);
+    const acrescimo = document.getElementById("acrescimoModelo");
+    acrescimo.hidden = !comAcrescimo;
+    acrescimo.textContent = comAcrescimo ? "+ " + moedaGeracao.format(modelo.acrescimo / 100) : "";
+    document.getElementById("nomeModelo").textContent = modelo.nome;
+    document.getElementById("precoGeracao").textContent = moedaGeracao.format(calcularPrecoGeracao(modelo, !!logoBase64) / 100);
+    document.querySelectorAll("#pontosModelos button").forEach(botao => {
+        botao.setAttribute("aria-current", String(botao.dataset.modelo === modelo.id));
+    });
 }
 
 function escaparTextoCliente(texto){
@@ -1843,7 +2027,9 @@ function paginarPreviewCliente(html){
 
     function novaPagina(){
         folha = document.createElement("section");
-        folha.className = "pagina-cliente";
+        folha.className = modeloSelecionado === "original"
+            ? "pagina-cliente"
+            : "pagina-cliente folha-nova modelo-" + modeloSelecionado;
         conteudo = document.createElement("div");
         conteudo.className = "pagina-cliente-conteudo";
         folha.append(conteudo);
@@ -1941,6 +2127,21 @@ function paginarPreviewCliente(html){
 }
 
 const previewCliente = document.getElementById("previewCliente");
+const superficieModelos = document.getElementById("previewConteudo");
+let inicioGestoModelo;
+superficieModelos.addEventListener("pointerdown", evento => {
+    if(!evento.isPrimary || evento.button !== 0) return;
+    inicioGestoModelo = { id:evento.pointerId, x:evento.clientX, y:evento.clientY };
+    superficieModelos.setPointerCapture(evento.pointerId);
+});
+superficieModelos.addEventListener("pointerup", evento => {
+    if(inicioGestoModelo?.id !== evento.pointerId) return;
+    const dx = evento.clientX - inicioGestoModelo.x;
+    const dy = evento.clientY - inicioGestoModelo.y;
+    inicioGestoModelo = undefined;
+    if(Math.abs(dx) >= 45 && Math.abs(dx) > 1.25 * Math.abs(dy)) navegarModelo(dx < 0 ? 1 : -1);
+});
+superficieModelos.addEventListener("pointercancel", () => { inicioGestoModelo = undefined; });
 new ResizeObserver(() => {
     const larguraA4 = 210 * 96 / 25.4;
     previewCliente.style.setProperty("--escala-previa", Math.min(1, previewCliente.clientWidth / larguraA4));
@@ -2288,32 +2489,32 @@ ${dados.descricaoInterna || "-"}
 
 // ---------- FUNÇÃO PRINCIPAL PARA GERAR PDFs ----------
 async function gerarPDFs(){
-
-    const htmlCliente = prepararPDFCliente();
-    const htmlControle = prepararPDFControle();
-
-    const nomeCliente = document.getElementById("cliente_nome").value.trim();
-
-    // 🔥 DETECTA SE TEM LOGO
-    const temLogo = !!logoBase64;
-
-    const resp = await fetch("/api/criar-checkout",{
-        method:"POST",
-        headers:{
-            "Content-Type":"application/json"
-        },
-        body:JSON.stringify({
-            htmlCliente,
-            htmlControle,
-            nomeCliente,
-            temLogo // 🔥 ENVIA PRO BACKEND
-        })
-    });
-
-    const data = await resp.json();
-
-    window.location.href = data.url;
-
+    const modelo = catalogoModelos.find(opcao => opcao.id === modeloSelecionado);
+    const botao = document.getElementById("botaoGerarPDF");
+    if(!modelo || botao.disabled) return;
+    botao.disabled = true;
+    try {
+        const temLogo = !!logoBase64;
+        const resp = await fetch("/api/criar-checkout",{
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            body:JSON.stringify({
+                htmlCliente: prepararPDFCliente(),
+                htmlControle: prepararPDFControle(),
+                nomeCliente: document.getElementById("cliente_nome").value.trim(),
+                temLogo,
+                modeloId: modelo.id,
+                precoExibido: calcularPrecoGeracao(modelo, temLogo)
+            })
+        });
+        const data = await resp.json();
+        if(resp.status === 409) throw new Error(data.error);
+        if(!resp.ok || !data.url) throw new Error("Não foi possível iniciar o pagamento. Tente novamente.");
+        window.location.href = data.url;
+    } catch(erro){
+        alert(erro.message);
+        botao.disabled = false;
+    }
 }
 
 // ---------- FUNÇÃO DE ENVIO AO BACKEND ----------
@@ -2433,6 +2634,7 @@ function salvarNoStorage(){
         contadorItens,
         logoBase64,
         posicaoLogo,
+        modeloSelecionado,
 
         camposFixos: {
             tituloOrcamento: tituloOrcamento.value,
@@ -2624,6 +2826,11 @@ function removerLogo(){
 
 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
+</script>
+<script src="./modelos-orcamento.js"></script>
+<script>
+    const { MODELOS, PRECOS, precoOrcamento } = globalThis.catalogoOrcamentoFacil;
+    configurarModelos(MODELOS, PRECOS, precoOrcamento);
 </script>
 </body>
 </html>

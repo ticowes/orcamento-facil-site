@@ -37,6 +37,9 @@ export default async function handler(req, res) {
     if (session.payment_status !== "paid") {
       return res.status(400).json({ error: "Pagamento não confirmado" });
     }
+    if (session.metadata?.id !== id) {
+      return res.status(400).json({ error: "Pagamento não corresponde a este orçamento" });
+    }
 
     const arquivos = await list({
       prefix: `orcamentos/${id}`,
