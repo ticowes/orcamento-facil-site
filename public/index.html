@@ -777,12 +777,15 @@ let contadorItens = 0;
 let modeloSelecionado = "original";
 let catalogoModelos = [];
 let calcularPrecoGeracao;
+let restaurandoOrcamento = false;
 
 const idSessao = sessionStorage.getItem("orcamentoSessao") || Date.now().toString();
 sessionStorage.setItem("orcamentoSessao", idSessao);
 
 window.onload = function(){
 
+    restaurandoOrcamento = true;
+    const blocosMinimizados = [];
     const dadosSalvos = localStorage.getItem("orcamentoFacil_" + idSessao)
 
     if(dadosSalvos){
@@ -837,6 +840,7 @@ if(dados.posicaoLogo){
                 inputs[0].value = m.comprimento;
                 inputs[1].value = m.largura;
             });
+            if(amb.minimizado) blocosMinimizados.push([ambienteCriado, "area"]);
 
         });
 
@@ -861,6 +865,9 @@ if(dados.posicaoLogo){
                 document.getElementById(`quant_final_${i}`).value =
                     parseFloat(item.quantFinal).toFixed(2);
             }
+            if(item.minimizado){
+                blocosMinimizados.push([document.getElementById(`desc_${i}`).closest(".blocoItem"), "item"]);
+            }
 
         });
 
@@ -874,6 +881,8 @@ if(dados.posicaoLogo){
     atualizarVencimento();
     calcularAreas();
     calcularTotal();
+    for(const [bloco, tipo] of blocosMinimizados) executarMinimizacao(bloco, tipo);
+    restaurandoOrcamento = false;
     atualizarPreview();
 
     validade_dias.addEventListener("input", atualizarVencimento);
@@ -1096,12 +1105,7 @@ function adicionarControlesMinimizacao(container, tipo){
         e.stopPropagation();
 
         executarMinimizacao(container, tipo);
-
-        if(container.classList.contains("minimizado")){
-            btn.innerText = "➕";
-        }else{
-            btn.innerText = "➖";
-        }
+        salvarNoStorage();
     };
 
     container.appendChild(btn);
@@ -1372,10 +1376,12 @@ function adicionarControlesItem(container){
 
     // BOTÃO SUBIR
     const btnUp = document.createElement("button");
+    btnUp.className = "btnOrdemItem";
     btnUp.innerText = "⬆";
 
     // BOTÃO DESCER
     const btnDown = document.createElement("button");
+    btnDown.className = "btnOrdemItem";
     btnDown.innerText = "⬇";
 
     const estiloBase = (btn, right) => {
@@ -1400,17 +1406,7 @@ function adicionarControlesItem(container){
         e.stopPropagation();
 
         executarMinimizacao(container, "item");
-
-        if(container.classList.contains("minimizado")){
-            btnMin.innerText = "➕";
-        }else{
-            btnMin.innerText = "➖";
-        }
-
-        // garante que continua visível
-        container.appendChild(btnMin);
-        container.appendChild(btnUp);
-        container.appendChild(btnDown);
+        salvarNoStorage();
     };
 
     // ⬆ SUBIR
@@ -1667,6 +1663,7 @@ function calcularTotal(){
 
 function executarMinimizacao(container, tipo){
 
+    const botao = container.querySelector(".btnMinToggle");
     let wrapper = container.querySelector(".conteudoInterno");
 
     if(!wrapper){
@@ -1685,6 +1682,7 @@ function executarMinimizacao(container, tipo){
         wrapper.style.display = "block";
         container.querySelector(".tituloMinimizado")?.remove();
         container.classList.remove("minimizado");
+        if(botao) botao.innerText = "➖";
         return;
     }
 
@@ -1740,10 +1738,8 @@ function executarMinimizacao(container, tipo){
     }
 
     wrapper.style.display = "none";
-    const botao = container.querySelector(".btnMinToggle");
-    if(botao){
-    container.appendChild(botao); // garante que ele fique fora do wrapper
-    }
+    container.append(...wrapper.querySelectorAll(".btnMinToggle, .btnOrdemItem"));
+    if(botao) botao.innerText = "➕";
     const titulo = document.createElement("div");
     titulo.className = "tituloMinimizado";
 
@@ -2627,6 +2623,7 @@ document.addEventListener("click", function(e){
 });
 
 function salvarNoStorage(){
+    if(restaurandoOrcamento) return;
 
     const dados = {
 
@@ -2676,7 +2673,7 @@ function salvarNoStorage(){
 
         });
 
-        dados.ambientes.push({ descricao, medidas });
+        dados.ambientes.push({ descricao, medidas, minimizado: ambiente.classList.contains("minimizado") });
 
     });
 
@@ -2686,6 +2683,7 @@ function salvarNoStorage(){
 
         dados.itens.push({
 
+            minimizado: item.classList.contains("minimizado"),
             desc: document.getElementById(`desc_${i}`)?.value || "",
             quant: document.getElementById(`quant_${i}`)?.value || "",
             perc: document.getElementById(`perc_${i}`)?.value || "",
