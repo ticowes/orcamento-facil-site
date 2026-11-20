@@ -452,20 +452,16 @@ Remover logo
         
         <br><br>
 
-        <div style="display:flex; align-items:center; width:84%; margin-top:15px;">
+        <h2 style="margin-bottom:10px; overflow-wrap:anywhere;">
+            Área Total: <span id="totalArea">0,00</span>m²
+        </h2>
 
-    <h2 style="margin-bottom:10px;">
-    Área Total: <span id="totalArea">0,00</span>m²
-</h2>
-
-<div style="width:100%; text-align:center; margin-top:35px;">
-    <button onclick="reiniciarCalculadora()" 
-        style="background:#c62828; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">
-        Reiniciar Calculadora
-    </button>
-</div>
-
-</div>
+        <div style="display:flex; justify-content:flex-end;">
+            <button type="button" onclick="reiniciarCalculadora()"
+                style="background:#c62828; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">
+                Reiniciar Calculadora
+            </button>
+        </div>
     </div>
 
 
@@ -484,16 +480,16 @@ Remover logo
         <button id="botaoadicionarItem" onclick="adicionarItem()">Add Serviço/Produto</button>
         
        
-    <h2 style="margin-bottom:10px;">
-        Total Geral: R$ <span id="total">0,00</span>
-    </h2>
-    
-    <div style="width:100%; text-align:center; margin-top:-35px;">
-    <button onclick="reiniciarOrcamento()" 
-        style="background:#c62828; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">
-        Reiniciar Orçamento
-    </button>
-</div>
+        <h2 style="margin-bottom:10px; overflow-wrap:anywhere;">
+            Total Geral: R$ <span id="total">0,00</span>
+        </h2>
+
+        <div style="display:flex; justify-content:flex-end;">
+            <button type="button" onclick="reiniciarOrcamento()"
+                style="background:#c62828; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">
+                Reiniciar Orçamento
+            </button>
+        </div>
     </div>
 
 
