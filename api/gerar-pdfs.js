@@ -77,13 +77,18 @@ export default async function handler(req, res) {
     // ===== PDF CLIENTE =====
 await page.setContent(dados.htmlCliente, { waitUntil: "load" });
 
+const clientePaginado = dados.htmlCliente.includes('<meta name="orcamento-paginado" content="1">');
 const pdfCliente = Buffer.from(
-  await page.pdf({
+  await page.pdf(clientePaginado ? {
+    format: "A4",
+    preferCSSPageSize: true,
+    printBackground: true,
+  } : {
     format: "A4",
 
     margin: {
-      top: "30mm",
-      bottom: "25mm",
+      top: "35mm",
+      bottom: "35mm",
       left: "20mm",
       right: "20mm"
     },
@@ -118,8 +123,8 @@ const pdfControle = Buffer.from(
     format: "A4",
 
     margin: {
-      top: "25mm",
-      bottom: "20mm",
+      top: "35mm",
+      bottom: "35mm",
       left: "18mm",
       right: "18mm"
     },

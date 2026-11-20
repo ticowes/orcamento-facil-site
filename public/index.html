@@ -3,6 +3,7 @@
 <head>
     <link rel="manifest" href="/manifest.json">
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Orçamento Fácil</title>
 <style>
 /* Serve para arrastar os itens do orçamento*/   
@@ -161,8 +162,10 @@ cursor:pointer;
 
 #botaoGerarPDF{
 
-font-size:60px;
-padding:50px 80px;
+font-size:24px;
+padding:16px 24px;
+max-width:100%;
+box-sizing:border-box;
 
 }
 
@@ -512,28 +515,68 @@ Remover logo
     <div class="blocoPrincipal">
         <h2>Prévia do Orçamento</h2>
 
-        <div id="previewCliente" style="
-            position:relative;
-            padding:150px;
-            border:2px solid #000;
-            background:#ffffff;
-            user-select:none;
-            pointer-events:none;
-            overflow:hidden;
-        ">
-
-            <div id="watermarkPreview" aria-hidden="true" style="
+        <style id="estilosPaginasCliente">
+            .pagina-cliente {
+                position:relative;
+                box-sizing:border-box;
+                width:210mm;
+                height:296.9mm;
+                padding:35mm 20mm;
+                background:white;
+                color:black;
+                font:14px/1.25 Arial,sans-serif;
+            }
+            .pagina-cliente-conteudo {
+                display:flow-root;
+                overflow-wrap:anywhere;
+            }
+            .pagina-cliente .previewTextoMenor { font-size:12px; }
+            .pagina-cliente table { table-layout:fixed; }
+            .pagina-cliente-rodape {
+                position:absolute;
+                bottom:9mm;
+                left:20mm;
+                right:20mm;
+                display:flex;
+                justify-content:space-between;
+                color:#595959;
+                font-size:10px;
+            }
+            @media print {
+                @page { size:A4; margin:0; }
+                html, body { margin:0; }
+                .pagina-cliente:not(:last-child) { break-after:page; }
+            }
+        </style>
+        <style>
+            #previewCliente { overflow:auto; user-select:none; }
+            #previewConteudo { display:grid; gap:20px; justify-items:start; }
+            #previewConteudo .pagina-cliente {
+                outline:1px solid #a5a4a4;
+                zoom:var(--escala-previa, 1);
+            }
+            #previewConteudo .pagina-cliente::after {
+                content:"";
                 position:absolute;
                 inset:0;
                 background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22320%22 height=%22160%22 viewBox=%220 0 320 160%22%3E%3Cg transform=%22rotate(-25 160 80)%22 fill=%22%23e93434%22 fill-opacity=%22.85%22 font-family=%22Arial,sans-serif%22 font-weight=%22bold%22 text-anchor=%22middle%22%3E%3Ctext x=%22160%22 y=%2275%22 font-size=%2228%22%3EORÇAMENTO FÁCIL%3C/text%3E%3Ctext x=%22160%22 y=%22102%22 font-size=%2220%22%3EDOCUMENTO NÃO VÁLIDO%3C/text%3E%3C/g%3E%3C/svg%3E');
                 background-repeat:repeat;
                 z-index:10;
                 pointer-events:none;
-            "></div>
-
+            }
+        </style>
+        <div id="previewCliente">
             <div id="previewConteudo"></div>
         </div>
 
+        <p>
+            <label for="alinhamentoPaginacao">Numeração das páginas</label>
+            <select id="alinhamentoPaginacao" onchange="atualizarPreview()">
+                <option value="right">À direita</option>
+                <option value="center">Centralizada</option>
+                <option value="left">À esquerda</option>
+            </select>
+        </p>
         <br>
         <button id="botaoGerarPDF" onclick="gerarPDFs()">Gerar PDFs</button>
     </div>
@@ -842,7 +885,6 @@ function reordenarNumeracao() {
 
     });
 
-    contadorArea = blocos.length;
 }
 function mascaraDecimal(campo){
 
@@ -871,7 +913,7 @@ function adicionarLinhaArea(){
 
     div.innerHTML = `
         <hr>
-        <strong>Ambiente ${contadorArea}</strong><br><br>
+        <strong>Ambiente ${document.querySelectorAll(".blocoArea").length + 1}</strong><br><br>
 
         Descrição:
         <input type="text"><br><br>
@@ -1084,9 +1126,10 @@ function adicionarItem(){
     let div = document.createElement("div");
     div.style.backgroundColor = (contadorItens % 2 === 0) ? "#c7aa8c" : "#ddcdba";
     div.classList.add("blocoItem");
+    div.dataset.item = contadorItens;
     div.innerHTML = `
         <hr>
-        <h4>Item ${contadorItens}</h4>
+        <h4>Item ${document.querySelectorAll("#itens .blocoItem").length + 1}</h4>
 
         <div style="margin-bottom:12px;">
     Descrição:
@@ -1191,16 +1234,6 @@ function adicionarItem(){
     // cálculo inicial
     calcularQuantidadeFinal(contadorItens);
     calcularTotal();
-    const btnCima = div.querySelector(".btnArredCima");
-const btnBaixo = div.querySelector(".btnArredBaixo");
-
-btnCima.addEventListener("click", function(){
-    aplicarArredondamento(contadorItens, "cima");
-});
-
-btnBaixo.addEventListener("click", function(){
-    aplicarArredondamento(contadorItens, "baixo");
-});
 salvarNoStorage();
 }
 //Subir Descer//
@@ -1390,7 +1423,6 @@ function reordenarItens(){
 
     });
 
-    contadorItens = itens.length;
 }
 function ativarDragItem(container){
 
@@ -1475,7 +1507,8 @@ function calcularTotal(){
     let rt = parseFloat(document.getElementById("rt").value) || 0;
     let totalGeral = 0;
 
-    for(let i = 1; i <= contadorItens; i++){
+    for(const item of document.querySelectorAll("#itens .blocoItem")){
+        const i = item.dataset.item;
 
         const quantInput = document.getElementById("quant_" + i);
 
@@ -1644,9 +1677,10 @@ function atualizarPreview(){
     if(logoBase64){
         html += `
             <img src="${logoBase64}" style="
-                max-width:200px;
-                max-height:100px;
+                width:200px;
+                height:100px;
                 object-fit:contain;
+                object-position:${alinhamentoLogo};
                 display:inline-block;
             ">
         `;
@@ -1667,7 +1701,7 @@ html += `
     word-break:break-word;
 ">
     <h2 style="margin-bottom:5px;">
-        ${tituloFinal}
+        ${escaparTextoCliente(tituloFinal)}
     </h2>
 </div>
 `;
@@ -1678,17 +1712,17 @@ html += `
         html += `<div style="margin-top:20px;">`;
 
         if(empresaNome)
-            html += `<div style="font-size:22px; font-weight:bold;">${empresaNome}</div>`;
+            html += `<div style="font-size:22px; font-weight:bold;">${escaparTextoCliente(empresaNome)}</div>`;
 
         html += `<div class="previewTextoMenor">`;
 
         if(empresaDoc){
             let numeros = empresaDoc.replace(/\D/g,'');
             let tipo = numeros.length <= 11 ? "CPF" : "CNPJ";
-            html += `${tipo}: ${empresaDoc}<br>`;
+            html += `${tipo}: ${escaparTextoCliente(empresaDoc)}<br>`;
         }
 
-        if(empresaTel) html += `Telefone: ${empresaTel}<br>`;
+        if(empresaTel) html += `Telefone: ${escaparTextoCliente(empresaTel)}<br>`;
 
         html += `</div></div><br>`;
     }
@@ -1699,16 +1733,16 @@ html += `
         html += `<div class="previewTextoMenor">`;
         html += `<strong>Dados do Cliente</strong><br>`;
 
-        if(clienteNome) html += `Nome: ${clienteNome}<br>`;
+        if(clienteNome) html += `Nome: ${escaparTextoCliente(clienteNome)}<br>`;
 
         if(clienteDoc){
             let numeros = clienteDoc.replace(/\D/g,'');
             let tipo = numeros.length <= 11 ? "CPF" : "CNPJ";
-            html += `${tipo}: ${clienteDoc}<br>`;
+            html += `${tipo}: ${escaparTextoCliente(clienteDoc)}<br>`;
         }
 
-        if(clienteTel) html += `Telefone: ${clienteTel}<br>`;
-        if(clienteEnd) html += `Endereço: ${clienteEnd}<br>`;
+        if(clienteTel) html += `Telefone: ${escaparTextoCliente(clienteTel)}<br>`;
+        if(clienteEnd) html += `Endereço: ${escaparTextoCliente(clienteEnd)}<br>`;
 
         html += `<br></div>`;
     }
@@ -1716,8 +1750,8 @@ html += `
     // INFO
     html += `
     <div class="previewTextoMenor" style="display:flex; gap:30px; flex-wrap:wrap; margin-bottom:15px;">
-        <div><strong>Data:</strong> ${data}</div>
-        <div><strong>Vencimento:</strong> ${venc}</div>
+        <div><strong>Data:</strong> ${escaparTextoCliente(data)}</div>
+        <div><strong>Vencimento:</strong> ${escaparTextoCliente(venc)}</div>
     </div>
     `;
 
@@ -1764,9 +1798,9 @@ html += `
 
         html += `
         <tr style="text-align:center;">
-            <td style="padding:8px;">${desc}</td>
+            <td style="padding:8px;">${escaparTextoCliente(desc)}</td>
             <td style="padding:8px;">${formatar(q)}</td>
-            <td style="padding:8px;">${unidade}</td>
+            <td style="padding:8px;">${escaparTextoCliente(unidade)}</td>
             <td style="padding:8px;">R$ ${formatar(valorUnit)}</td>
             <td style="padding:8px;">R$ ${formatar(subtotal)}</td>
         </tr>
@@ -1785,16 +1819,136 @@ html += `
 
     if(descCliente){
         html += `
-        <div style="margin-top:20px; white-space: pre-wrap; text-align: justify;">
-            ${descCliente}
-        </div>
+        <div data-descricao-cliente style="margin-top:20px; white-space:pre-wrap; text-align:justify;">${escaparTextoCliente(descCliente)}</div>
         `;
     }
 
-    document.getElementById("previewConteudo").innerHTML = html;
+    paginarPreviewCliente(html);
 
     salvarNoStorage();
 }
+
+function escaparTextoCliente(texto){
+    return texto.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+function paginarPreviewCliente(html){
+    const origem = document.createElement("template");
+    origem.innerHTML = html;
+    const destino = document.getElementById("previewConteudo");
+    // Mede em tamanho A4 antes de aplicar o zoom da tela.
+    destino.style.setProperty("--escala-previa", "1");
+    destino.replaceChildren();
+    const paginas = [];
+    const alinhamento = document.getElementById("alinhamentoPaginacao").value;
+    let folha;
+    let conteudo;
+    let altura;
+
+    function novaPagina(){
+        folha = document.createElement("section");
+        folha.className = "pagina-cliente";
+        conteudo = document.createElement("div");
+        conteudo.className = "pagina-cliente-conteudo";
+        folha.append(conteudo);
+        destino.append(folha);
+        paginas.push(folha);
+        const estilo = getComputedStyle(folha);
+        altura = folha.clientHeight - parseFloat(estilo.paddingTop) - parseFloat(estilo.paddingBottom) - 2;
+    }
+
+    function adicionarBloco(bloco){
+        conteudo.append(bloco);
+        if(conteudo.offsetHeight > altura && conteudo.children.length > 1){
+            novaPagina();
+            conteudo.append(bloco);
+        }
+    }
+
+    function adicionarDescricao(bloco){
+        let restante = Array.from(bloco.textContent);
+        while(restante.length){
+            const trecho = bloco.cloneNode(false);
+            trecho.textContent = restante.join("");
+            conteudo.append(trecho);
+            if(conteudo.offsetHeight <= altura) return;
+
+            let inicio = 0;
+            let fim = restante.length;
+            while(inicio < fim){
+                const meio = Math.ceil((inicio + fim) / 2);
+                trecho.textContent = restante.slice(0, meio).join("");
+                if(conteudo.offsetHeight <= altura) inicio = meio;
+                else fim = meio - 1;
+            }
+
+            if(inicio){
+                const fimPalavra = restante.slice(0, inicio).join("").search(/\s+\S*$/u);
+                const corte = fimPalavra > 0 && !/\s/u.test(restante[inicio] || "")
+                    ? Array.from(restante.slice(0, inicio).join("").slice(0, fimPalavra + 1)).length
+                    : inicio;
+                trecho.textContent = restante.slice(0, corte).join("");
+                restante = restante.slice(corte);
+            }else{
+                trecho.remove();
+            }
+            novaPagina();
+        }
+    }
+
+    novaPagina();
+    for(const bloco of Array.from(origem.content.children)){
+        if(bloco.matches("[data-descricao-cliente]")){
+            adicionarDescricao(bloco);
+        }else if(bloco.matches("table")){
+            const [cabecalho, ...linhas] = Array.from(bloco.rows);
+            let tabela = bloco.cloneNode(false);
+            let corpo = tabela.createTBody();
+            corpo.append(cabecalho.cloneNode(true));
+            adicionarBloco(tabela);
+            for(const linha of linhas){
+                corpo.append(linha);
+                if(conteudo.offsetHeight > altura && (corpo.rows.length > 2 || conteudo.children.length > 1)){
+                    linha.remove();
+                    if(corpo.rows.length === 1) tabela.remove();
+                    novaPagina();
+                    tabela = bloco.cloneNode(false);
+                    corpo = tabela.createTBody();
+                    corpo.append(cabecalho.cloneNode(true), linha);
+                    conteudo.append(tabela);
+                }
+            }
+        }else{
+            adicionarBloco(bloco);
+        }
+    }
+
+    paginas.forEach((pagina, indice) => {
+        const rodape = document.createElement("footer");
+        rodape.className = "pagina-cliente-rodape";
+        const marca = document.createElement("span");
+        marca.textContent = "Orçamento Fácil";
+        const numero = document.createElement("span");
+        numero.textContent = `${indice + 1} de ${paginas.length}`;
+        numero.style.position = "absolute";
+        if(alinhamento === "center"){
+            numero.style.left = "50%";
+            numero.style.transform = "translateX(-50%)";
+        }else{
+            numero.style[alinhamento] = "0";
+        }
+        if(alinhamento === "left") marca.style.marginLeft = "auto";
+        rodape.append(marca, numero);
+        pagina.append(rodape);
+    });
+    destino.style.removeProperty("--escala-previa");
+}
+
+const previewCliente = document.getElementById("previewCliente");
+new ResizeObserver(() => {
+    const larguraA4 = 210 * 96 / 25.4;
+    previewCliente.style.setProperty("--escala-previa", Math.min(1, previewCliente.clientWidth / larguraA4));
+}).observe(previewCliente);
 
 function coletarDadosSistema() {
     return {
@@ -1828,40 +1982,18 @@ function formatar(valor){
 
 // ---------- PREPARAR PDF CLIENTE SEM MARCA D'ÁGUA ----------
 function prepararPDFCliente() {
-    const preview = document.getElementById("previewCliente");
-    if(!preview) throw new Error("Preview do cliente não encontrado");
-
-    // Clona o conteúdo do preview
-    const clone = preview.cloneNode(true);
-
-    // Remove a marca d'água do clone
-    const watermark = clone.querySelector("#watermarkPreview");
-    if (watermark) watermark.remove();
-
-    // Cria HTML completo do PDF incluindo estilos simples
+    const paginas = document.getElementById("previewConteudo");
+    const estilos = document.getElementById("estilosPaginasCliente");
     const htmlCliente = `
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<style>
-body { font-family: Arial, sans-serif; font-size: 14px; margin: 40px; }
-h2 { text-align: center; }
-table { 
-    width: 100%; 
-    margin-top: 15px; 
-    border-collapse: collapse;
-    table-layout: fixed;
-}
-td { 
-    padding: 4px 0; 
-    word-break: break-word;
-    overflow-wrap: break-word;
-}
-</style>
+<meta name="orcamento-paginado" content="1">
+${estilos.outerHTML}
 </head>
 <body>
-${clone.innerHTML}
+${paginas.innerHTML}
 </body>
 </html>
     `;
@@ -2321,6 +2453,7 @@ function salvarNoStorage(){
             imposto: imposto.value,
             rt: rt.value,
             descricao_interna: descricao_interna.value,
+            alinhamentoPaginacao: document.getElementById("alinhamentoPaginacao").value,
             descricao_cliente: descricao_cliente.value
         },
 
@@ -2350,9 +2483,8 @@ function salvarNoStorage(){
     });
 
     // ---------- SALVAR ITENS ----------
-    document.querySelectorAll(".blocoItem").forEach((item, index) => {
-
-        const i = index + 1;
+    document.querySelectorAll("#itens .blocoItem").forEach(item => {
+        const i = item.dataset.item;
 
         dados.itens.push({
 
