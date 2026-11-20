@@ -627,6 +627,7 @@ Remover logo
             #formCupom button { padding:8px 12px; }
             #retornoCupom { margin:6px 0 0; }
             #previewConteudo { touch-action:pan-y pinch-zoom; cursor:grab; }
+            #previewConteudo.previa-ampliada { touch-action:manipulation; cursor:auto; }
             .navegacao-modelos {
                 position:sticky;
                 bottom:0;
@@ -1986,12 +1987,13 @@ function configurarModelos(modelos, precos, calcularPreco){
     }
     document.getElementById("modeloAnterior").onclick = () => navegarModelo(-1);
     document.getElementById("modeloSeguinte").onclick = () => navegarModelo(1);
+    sincronizarZoomDaPrevia();
     document.getElementById("botaoGerarPDF").disabled = false;
     atualizarPrecoEModelo();
 }
 
 function selecionarModelo(id){
-    if(id === modeloSelecionado) return;
+    if(id === modeloSelecionado || previaAmpliada()) return;
     modeloSelecionado = id;
     atualizarPreview();
     const secao = document.getElementById("secaoPrevia");
@@ -2140,9 +2142,27 @@ function paginarPreviewCliente(html){
 
 const previewCliente = document.getElementById("previewCliente");
 const superficieModelos = document.getElementById("previewConteudo");
+const viewportDaPrevia = window.visualViewport;
 let inicioGestoModelo;
+
+function previaAmpliada(){
+    return (viewportDaPrevia?.scale ?? 1) > 1.01;
+}
+
+function sincronizarZoomDaPrevia(){
+    const ampliada = previaAmpliada();
+    if(ampliada) inicioGestoModelo = undefined;
+    superficieModelos.classList.toggle("previa-ampliada", ampliada);
+    document.querySelectorAll(".navegacao-modelos button").forEach(botao => { botao.disabled = ampliada; });
+}
+
+viewportDaPrevia?.addEventListener("resize", sincronizarZoomDaPrevia);
+window.addEventListener("pageshow", sincronizarZoomDaPrevia);
+document.addEventListener("pointerdown", evento => {
+    if(evento.pointerType === "touch" && !evento.isPrimary) inicioGestoModelo = undefined;
+}, { capture:true });
 superficieModelos.addEventListener("pointerdown", evento => {
-    if(!evento.isPrimary || evento.button !== 0) return;
+    if(!evento.isPrimary || evento.button !== 0 || previaAmpliada()) return;
     inicioGestoModelo = { id:evento.pointerId, x:evento.clientX, y:evento.clientY };
     superficieModelos.setPointerCapture(evento.pointerId);
 });
@@ -2151,9 +2171,10 @@ superficieModelos.addEventListener("pointerup", evento => {
     const dx = evento.clientX - inicioGestoModelo.x;
     const dy = evento.clientY - inicioGestoModelo.y;
     inicioGestoModelo = undefined;
-    if(Math.abs(dx) >= 45 && Math.abs(dx) > 1.25 * Math.abs(dy)) navegarModelo(dx < 0 ? 1 : -1);
+    if(!previaAmpliada() && Math.abs(dx) >= 45 && Math.abs(dx) > 1.25 * Math.abs(dy)) navegarModelo(dx < 0 ? 1 : -1);
 });
 superficieModelos.addEventListener("pointercancel", () => { inicioGestoModelo = undefined; });
+superficieModelos.addEventListener("lostpointercapture", () => { inicioGestoModelo = undefined; });
 new ResizeObserver(() => {
     const larguraA4 = 210 * 96 / 25.4;
     previewCliente.style.setProperty("--escala-previa", Math.min(1, previewCliente.clientWidth / larguraA4));
