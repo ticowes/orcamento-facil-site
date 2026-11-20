@@ -620,6 +620,12 @@ Remover logo
             .titulo-previa { justify-content:space-between; }
             #acrescimoModelo,#precoGeracao { font-weight:bold; font-size:1.25rem; }
             .acoes-pdf :is(#botaoGerarPDF,#precoGeracao) { font-size:1.25rem; }
+            #formCupom { margin:0 0 16px; }
+            #formCupom label { display:block; margin-bottom:6px; font-weight:bold; }
+            .linha-cupom { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+            #codigoCupom { flex:0 1 270px; min-width:0; font-size:16px; }
+            #formCupom button { padding:8px 12px; }
+            #retornoCupom { margin:6px 0 0; }
             #previewConteudo { touch-action:pan-y pinch-zoom; cursor:grab; }
             .navegacao-modelos {
                 position:sticky;
@@ -691,6 +697,15 @@ Remover logo
             </select>
         </p>
         <br>
+        <form id="formCupom" hidden>
+            <label for="codigoCupom">Inserir cupom de desconto</label>
+            <div class="linha-cupom">
+                <input id="codigoCupom" maxlength="29" autocomplete="off" autocapitalize="characters" spellcheck="false" required>
+                <button type="submit">Aplicar cupom</button>
+                <button type="button" id="removerCupom" hidden>Remover cupom</button>
+            </div>
+            <p id="retornoCupom" role="status"></p>
+        </form>
         <div class="acoes-pdf">
             <button id="botaoGerarPDF" onclick="gerarPDFs()" disabled>Gerar PDFs</button>
             <output id="precoGeracao" aria-live="polite" aria-label="Valor total para gerar os PDFs"></output>
@@ -777,6 +792,7 @@ let contadorItens = 0;
 let modeloSelecionado = "original";
 let catalogoModelos = [];
 let calcularPrecoGeracao;
+let cupomAplicado = "";
 let restaurandoOrcamento = false;
 
 const idSessao = sessionStorage.getItem("orcamentoSessao") || Date.now().toString();
@@ -1998,7 +2014,7 @@ function atualizarPrecoEModelo(){
     acrescimo.hidden = !comAcrescimo;
     acrescimo.textContent = comAcrescimo ? "+ " + moedaGeracao.format(modelo.acrescimo / 100) : "";
     document.getElementById("nomeModelo").textContent = modelo.nome;
-    document.getElementById("precoGeracao").textContent = moedaGeracao.format(calcularPrecoGeracao(modelo, !!logoBase64) / 100);
+    document.getElementById("precoGeracao").textContent = moedaGeracao.format(cupomAplicado ? 0 : calcularPrecoGeracao(modelo, !!logoBase64) / 100);
     document.querySelectorAll("#pontosModelos button").forEach(botao => {
         botao.setAttribute("aria-current", String(botao.dataset.modelo === modelo.id));
     });
@@ -2484,6 +2500,65 @@ ${dados.descricaoInterna || "-"}
 }
 
 // ---------- FUNÇÃO PRINCIPAL PARA GERAR PDFs ----------
+const campoCupom = document.getElementById("codigoCupom");
+const retornoCupom = document.getElementById("retornoCupom");
+const removerBotaoCupom = document.getElementById("removerCupom");
+const formCupom = document.getElementById("formCupom");
+
+if(location.protocol !== "file:"){
+    fetch("/api/validar-cupom").then(resp => resp.json()).then(({ disponivel }) => {
+        formCupom.hidden = !disponivel;
+    }).catch(() => {});
+}
+
+function limparCupom(){
+    cupomAplicado = "";
+    removerBotaoCupom.hidden = true;
+    retornoCupom.textContent = "";
+    atualizarPrecoEModelo();
+}
+campoCupom.addEventListener("input", limparCupom);
+removerBotaoCupom.addEventListener("click", () => { campoCupom.value = ""; limparCupom(); });
+formCupom.addEventListener("submit", async evento => {
+    evento.preventDefault();
+    const botao = formCupom.querySelector('button[type="submit"]');
+    if(botao.disabled) return;
+    limparCupom();
+    const codigo = campoCupom.value.trim().toUpperCase();
+    botao.disabled = true;
+    try {
+        const resp = await fetch("/api/validar-cupom", {
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            body:JSON.stringify({ codigo })
+        });
+        const data = await resp.json();
+        if(campoCupom.value.trim().toUpperCase() !== codigo) return;
+        if(!resp.ok) throw new Error(data.error || "Não foi possível aplicar o cupom.");
+        cupomAplicado = codigo;
+        removerBotaoCupom.hidden = false;
+        retornoCupom.textContent = `Cupom aplicado. Gerações disponíveis hoje: ${data.restantes}.`;
+        atualizarPrecoEModelo();
+    } catch(erro) {
+        retornoCupom.textContent = erro.message;
+    } finally {
+        botao.disabled = false;
+    }
+});
+
+async function pedidoParaCupom(documento){
+    const bytes = new TextEncoder().encode(JSON.stringify(documento));
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    const identificador = btoa(String.fromCharCode(...new Uint8Array(digest)));
+    const anterior = JSON.parse(sessionStorage.getItem("of-pedido-cupom") || "null");
+    if(anterior?.identificador === identificador) return anterior;
+    const segredo = crypto.getRandomValues(new Uint8Array(32));
+    const tokenDownload = btoa(String.fromCharCode(...segredo)).replaceAll("+","-").replaceAll("/","_").replaceAll("=","");
+    const pedido = { identificador, pedidoId:crypto.randomUUID(), tokenDownload };
+    sessionStorage.setItem("of-pedido-cupom", JSON.stringify(pedido));
+    return pedido;
+}
+
 async function gerarPDFs(){
     const modelo = catalogoModelos.find(opcao => opcao.id === modeloSelecionado);
     const botao = document.getElementById("botaoGerarPDF");
@@ -2491,21 +2566,29 @@ async function gerarPDFs(){
     botao.disabled = true;
     try {
         const temLogo = !!logoBase64;
+        const cupom = cupomAplicado;
+        const documento = {
+            htmlCliente: prepararPDFCliente(),
+            htmlControle: prepararPDFControle(),
+            nomeCliente: document.getElementById("cliente_nome").value.trim(),
+            temLogo,
+            modeloId: modelo.id,
+            precoExibido: cupom ? 0 : calcularPrecoGeracao(modelo, temLogo)
+        };
+        if(cupom){
+            documento.cupom = cupom;
+            const { pedidoId, tokenDownload } = await pedidoParaCupom(documento);
+            Object.assign(documento, { pedidoId, tokenDownload });
+        }
         const resp = await fetch("/api/criar-checkout",{
             method:"POST",
             headers:{ "Content-Type":"application/json" },
-            body:JSON.stringify({
-                htmlCliente: prepararPDFCliente(),
-                htmlControle: prepararPDFControle(),
-                nomeCliente: document.getElementById("cliente_nome").value.trim(),
-                temLogo,
-                modeloId: modelo.id,
-                precoExibido: calcularPrecoGeracao(modelo, temLogo)
-            })
+            body:JSON.stringify(documento)
         });
         const data = await resp.json();
-        if(resp.status === 409) throw new Error(data.error);
+        if(resp.status === 409 || (cupom && resp.status < 500 && !resp.ok)) throw new Error(data.error);
         if(!resp.ok || !data.url) throw new Error("Não foi possível iniciar o pagamento. Tente novamente.");
+        if(cupom) sessionStorage.removeItem("of-pedido-cupom");
         window.location.href = data.url;
     } catch(erro){
         alert(erro.message);
@@ -2717,6 +2800,8 @@ function novoOrcamento(){
     if(!confirm("O novo orçamento apagará todos os dados atuais")){
         return;
     }
+    campoCupom.value = "";
+    limparCupom();
 
     // Limpa localStorage
     localStorage.removeItem("orcamentoFacil");

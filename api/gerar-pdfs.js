@@ -3,6 +3,7 @@ import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
 import archiver from "archiver";
 import { list } from "@vercel/blob";
+import { obterPedidoCupom } from "../lib/pedido-cupom.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -24,9 +25,17 @@ function normalizarNome(nome) {
 }
 
 export default async function handler(req, res) {
+  let browser;
   try {
+    res.setHeader("Cache-Control", "private, no-store");
 
     const { session_id, id } = req.query;
+    const token = req.headers.authorization?.match(/^Bearer ([\w-]+)$/)?.[1];
+    let dados;
+    if (token && !session_id) {
+      dados = await obterPedidoCupom(id, token);
+      if (!dados) return res.status(403).json({ error: "Download indisponível ou expirado." });
+    } else {
 
     if (!session_id || !id) {
       return res.status(400).json({ error: "session_id ou id ausente" });
@@ -62,20 +71,27 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Falha ao ler JSON do Blob" });
     }
 
-    const dados = await response.json();
+      dados = await response.json();
+    }
 
     let nomeCliente = normalizarNome(dados.nomeCliente || "cliente");
 
     const dataHoje = new Date().toISOString().slice(0, 10);
     const codigoUnico = gerarCodigoUnico();
 
-    const browser = await puppeteer.launch({
+    browser = await puppeteer.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
       headless: true
     });
 
     const page = await browser.newPage();
+    await page.setJavaScriptEnabled(false);
+    await page.setRequestInterception(true);
+    page.on("request", requisicao => {
+      if (/^(data:|about:blank$)/.test(requisicao.url())) return requisicao.continue();
+      return requisicao.abort();
+    });
 
     // ===== PDF CLIENTE =====
 await page.setContent(dados.htmlCliente, { waitUntil: "load" });
@@ -155,6 +171,7 @@ const pdfControle = Buffer.from(
 );
 
     await browser.close();
+    browser = undefined;
 
     const nomeZip = `orcamento-${nomeCliente}-${dataHoje}-${codigoUnico}.zip`;
 
@@ -184,5 +201,7 @@ archive.append(pdfControle, {
       error: "Erro ao gerar PDFs",
       detalhe: err.message
     });
+  } finally {
+    if (browser) await browser.close().catch(() => {});
   }
 }

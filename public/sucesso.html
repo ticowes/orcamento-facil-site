@@ -11,13 +11,16 @@
 
 const MAX_DOWNLOADS = 3;
 
-async function baixarPDF(session_id, id){
+async function baixarPDF(session_id, id, cupom){
 
-    const resp = await fetch(`/api/gerar-pdfs?session_id=${session_id}&id=${id}`);
+    const parametros = new URLSearchParams({ id });
+    if(session_id) parametros.set("session_id", session_id);
+    const headers = cupom ? { Authorization: "Bearer " + cupom } : {};
+    const resp = await fetch(`/api/gerar-pdfs?${parametros}`, { headers });
 
     if(!resp.ok){
         alert("Erro ao gerar download.");
-        return;
+        return false;
     }
 
     // 🔥 PEGA O NOME DO BACKEND
@@ -46,6 +49,7 @@ async function baixarPDF(session_id, id){
     a.remove();
 
     window.URL.revokeObjectURL(url);
+    return true;
 }
 
 async function iniciar(){
@@ -54,8 +58,9 @@ async function iniciar(){
 
     const session_id = params.get("session_id");
     const id = params.get("id");
+    const cupom = new URLSearchParams(location.hash.slice(1)).get("cupom");
 
-    if(!session_id || !id){
+    if((!session_id && !cupom) || !id){
 
         document.body.innerHTML =
         "<h2>Erro: parâmetros de pagamento não encontrados.</h2>";
@@ -63,12 +68,12 @@ async function iniciar(){
         return;
     }
 
-    const chave = "downloads_" + session_id;
+    const chave = "downloads_" + (session_id || id);
 
     document.body.innerHTML = `
     <div style="font-family:Arial;text-align:center;margin-top:60px">
 
-        <h2>Download concluído com sucesso.</h2>
+        <h2 id="status-download">Preparando seu download…</h2>
 
         <p>Verifique a pasta de downloads do seu navegador.</p>
 
@@ -85,40 +90,36 @@ async function iniciar(){
     </div>
     `;
 
-    let downloads = Number(sessionStorage.getItem(chave)) || 0;
-
-    // 🔥 DOWNLOAD AUTOMÁTICO
-    if(downloads < MAX_DOWNLOADS){
-
-        await baixarPDF(session_id, id);
-
-        downloads++;
-
-        sessionStorage.setItem(chave, downloads);
-    }
-
-    // 🔁 BOTÃO BAIXAR NOVAMENTE
-    document.getElementById("baixar").onclick = async function(){
-
-        let downloads = Number(sessionStorage.getItem(chave)) || 0;
+    const botaoBaixar = document.getElementById("baixar");
+    const statusDownload = document.getElementById("status-download");
+    botaoBaixar.onclick = async function(){
+        const downloads = Number(sessionStorage.getItem(chave)) || 0;
 
         if(downloads >= MAX_DOWNLOADS){
             alert("Limite de downloads atingido.");
             return;
         }
 
-        await baixarPDF(session_id, id);
-
-        downloads++;
-
-        sessionStorage.setItem(chave, downloads);
+        botaoBaixar.disabled = true;
+        try {
+            if(await baixarPDF(session_id, id, cupom)){
+                sessionStorage.setItem(chave, downloads + 1);
+                statusDownload.textContent = "Download concluído com sucesso.";
+            }else statusDownload.textContent = "Download indisponível. Tente novamente.";
+        } catch {
+            statusDownload.textContent = "Download indisponível. Tente novamente.";
+        } finally {
+            botaoBaixar.disabled = false;
+        }
     };
 
     // 🔙 VOLTAR
     document.getElementById("voltar").onclick = function(){
-        window.location.href = "https://orcamentofacil.app.br/";
+        window.location.href = "/";
     };
 
+    if((Number(sessionStorage.getItem(chave)) || 0) < MAX_DOWNLOADS) await botaoBaixar.onclick();
+    else statusDownload.textContent = "Limite de downloads atingido.";
 }
 
 window.onload = iniciar;

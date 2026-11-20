@@ -1,6 +1,8 @@
 import Stripe from "stripe";
 import { put } from "@vercel/blob";
 import "../public/modelos-orcamento.js";
+import { criarPedidoCupom } from "../lib/pedido-cupom.js";
+import { ErroCupom } from "../lib/cupom-store.js";
 
 const { MODELOS, precoOrcamento } = globalThis.catalogoOrcamentoFacil;
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -18,8 +20,17 @@ if (!modelo) {
   return res.status(400).json({ error: "Modelo de orçamento inválido." });
 }
 const valorFinal = precoOrcamento(modelo, !!temLogo);
-if (precoExibido !== undefined && precoExibido !== valorFinal) {
+const documento = { htmlCliente, htmlControle, nomeCliente, temLogo: !!temLogo, modeloId: modelo.id };
+const comCupom = typeof req.body.cupom === "string" && req.body.cupom.length > 0;
+if (precoExibido !== undefined && precoExibido !== (comCupom ? 0 : valorFinal)) {
   return res.status(409).json({ error: "O preço mudou. Recarregue a página antes de gerar os PDFs." });
+}
+if (comCupom) {
+  if (typeof htmlCliente !== "string" || !htmlCliente || typeof htmlControle !== "string" || !htmlControle ||
+      typeof nomeCliente !== "string" || nomeCliente.length > 1000) {
+    return res.status(400).json({ error: "Orçamento inválido." });
+  }
+  return res.json({ url: await criarPedidoCupom(req, documento) });
 }
 
 const id = crypto.randomUUID();
@@ -27,12 +38,7 @@ const id = crypto.randomUUID();
 // 🔥 SALVA DADOS (inclui temLogo)
 await put(
 `orcamentos/${id}.json`,
-JSON.stringify({
-htmlCliente,
-htmlControle,
-nomeCliente,
-temLogo: !!temLogo
-}),
+JSON.stringify(documento),
 {
 access:"private",
 contentType:"application/json"
@@ -79,6 +85,7 @@ cancel_url:
 res.json({url:session.url});
 
 }catch(err){
+if (err instanceof ErroCupom) return res.status(err.status).json({ error: err.message });
 
 res.status(500).json({
 error:err.message
