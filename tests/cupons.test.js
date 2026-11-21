@@ -181,6 +181,7 @@ test("fluxo visual: cadastra, emite, aplica e baixa os dois PDFs", { skip: !proc
     ]);
     const arquivos = new Map(Object.entries({
       "/": "index.html", "/modelos-orcamento.js": "modelos-orcamento.js", "/sucesso.html": "sucesso.html",
+      "/dados-locais.js": "dados-locais.js", "/perfis-rascunho.js": "perfis-rascunho.js", "/andamento.css": "andamento.css",
     }));
     const zip = Promise.withResolvers();
     t.on("request", async request => {
@@ -214,7 +215,8 @@ test("fluxo visual: cadastra, emite, aplica e baixa os dois PDFs", { skip: !proc
         const arquivo = arquivos.get(url.pathname);
         if (arquivo) return await request.respond({
           status: 200,
-          contentType: arquivo.endsWith(".js") ? "application/javascript; charset=utf-8" : "text/html; charset=utf-8",
+          contentType: arquivo.endsWith(".js") ? "application/javascript; charset=utf-8"
+            : arquivo.endsWith(".css") ? "text/css; charset=utf-8" : "text/html; charset=utf-8",
           body: await readFile(new URL("../public/" + arquivo, import.meta.url)),
         });
         await request.abort();

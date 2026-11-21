@@ -94,7 +94,11 @@ export default async function handler(req, res) {
     });
 
     // ===== PDF CLIENTE =====
-await page.setContent(dados.htmlCliente, { waitUntil: "load" });
+const htmlCliente = dados.htmlCliente.replace(
+  /(<footer class="pagina-cliente-rodape"><span(?: style="margin-left: auto;")?>)Orçamento Fácil(<\/span><span\b)/g,
+  "$1&nbsp;$2"
+);
+await page.setContent(htmlCliente, { waitUntil: "load" });
 
 const clientePaginado = dados.htmlCliente.includes('<meta name="orcamento-paginado" content="1">');
 const pdfCliente = Buffer.from(
@@ -120,10 +124,7 @@ const pdfCliente = Buffer.from(
     `,
 
     footerTemplate: `
-      <div style="width:100%; font-size:10px; color:#999; padding:0 20px; display:flex; justify-content:space-between;">
-        
-        <div>Orçamento Fácil</div>
-        
+      <div style="width:100%; font-size:10px; color:#999; padding:0 20px; display:flex; justify-content:flex-end;">
         <div>
           Página <span class="pageNumber"></span> de <span class="totalPages"></span>
         </div>

@@ -4,6 +4,7 @@
     <link rel="manifest" href="/manifest.json">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="./andamento.css">
 <title>Orçamento Fácil</title>
 <style>
 /* Serve para arrastar os itens do orçamento*/   
@@ -342,12 +343,31 @@ button {
         <label><strong>Objeto do orçamento</strong></label>
         <input type="text" id="tituloOrcamento" placeholder="Ex: Orçamento de...">
     </div>
+    <div class="controles-locais" role="group" aria-label="Rascunho">
+        <button type="button" id="salvarRascunho" disabled>Salvar rascunho</button>
+        <button type="button" id="abrirRascunho" disabled>Abrir rascunho</button>
+    </div>
+    <p class="estado-local" id="estadoRascunho" role="status"></p>
 </div>
 
 
     <!-- BLOCO 2 -->
     <div class="blocoPrincipal">
         <h2>Dados da Empresa</h2>
+        <style>
+            .controles-locais { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:12px 0 6px; }
+            .controles-locais button,.controles-locais select { box-sizing:border-box; min-height:44px; max-width:100%; padding:7px 12px; }
+            .controles-locais select { width:min(100%, 22em); }
+            .estado-local { margin:0 0 16px; font-size:.875rem; }
+            .estado-local:empty { display:none; }
+        </style>
+        <div class="controles-locais">
+            <label for="perfilEmpresa">Perfil da empresa</label>
+            <select id="perfilEmpresa" disabled></select>
+            <button type="button" id="alternarPerfil" disabled>Usar perfil</button>
+            <button type="button" id="salvarPerfil" disabled>Salvar neste perfil</button>
+        </div>
+        <p class="estado-local" id="estadoPerfil" role="status"></p>
 
 Nome:
 <input type="text" id="empresa_nome"><br><br>
@@ -387,16 +407,19 @@ Remover logo
 
 
 <span id="nomeArquivoLogo" style="margin-left:10px; font-size:14px;"></span>
+<p id="opcaoUsarLogo" hidden>
+    <label><input type="checkbox" id="usarLogoNoOrcamento"> Usar logo neste orçamento</label>
+</p>
 
     <br><br>
 
     <!-- BOTÕES DE POSIÇÃO LOGO-->
     <div style="display:flex; gap:10px; margin-top:10px;">
-    <button type="button" class="btnPosLogo" onclick="definirPosicaoLogo('left', this)">
+    <button type="button" class="btnPosLogo" data-posicao="left" onclick="definirPosicaoLogo('left')">
         Esquerda
     </button>
 
-    <button type="button" class="btnPosLogo" onclick="definirPosicaoLogo('right', this)">
+    <button type="button" class="btnPosLogo" data-posicao="right" onclick="definirPosicaoLogo('right')">
         Direita
     </button>
 </div>
@@ -502,8 +525,28 @@ Remover logo
 
     <!-- BLOCO 8 -->
     <div class="blocoPrincipal">
-        <h3>Descrição para o cliente</h3>
-        <textarea id="descricao_cliente" placeholder="Ex: Forma de pagamento, descrição do serviço, saudação, etc..." rows="4" style="width:100%;" oninput="atualizarPreview()"></textarea>
+        <h3>Textos descritivos</h3>
+        <style>
+            #textosDescritivos { display:grid; gap:20px; margin-bottom:12px; }
+            .editor-descritivo { display:grid; gap:8px; }
+            .editor-descritivo + .editor-descritivo { border-top:1px solid #ad9a87; padding-top:16px; }
+            .editor-descritivo .campo-descritivo { display:grid; gap:4px; }
+            .editor-descritivo :is(input[type="text"],textarea) { width:100%; box-sizing:border-box; }
+            .editor-descritivo textarea { resize:vertical; }
+            .opcoes-descritivas { display:flex; flex-wrap:wrap; gap:8px 16px; }
+        </style>
+        <div id="textosDescritivos"></div>
+        <template id="modeloTextoDescritivo">
+            <div class="editor-descritivo">
+                <label class="campo-descritivo">Título <input type="text" class="titulo-descritivo" placeholder="Ex: Garantia do serviço"></label>
+                <div class="opcoes-descritivas">
+                    <label><input type="checkbox" class="centralizar-descritivo"> Centralizar</label>
+                    <label><input type="checkbox" class="quebra-descritivo"> Iniciar em nova página</label>
+                </div>
+                <label class="campo-descritivo">Texto <textarea class="corpo-descritivo" rows="4" placeholder="Ex: Forma de pagamento, descrição do serviço ou materiais"></textarea></label>
+            </div>
+        </template>
+        <button type="button" id="inserirTextoDescritivo">Inserir novo texto</button>
     </div>
 
 
@@ -590,20 +633,24 @@ Remover logo
             }
             .modelo-lateral .dados-documento > div + div { margin-top:9px !important; }
             .modelo-lateral .datas-documento { display:block !important; }
-            .modelo-lateral .pagina-cliente-conteudo:has(.dados-documento) > table {
-                width:68% !important;
-                margin:0 0 0 32% !important;
+            .modelo-lateral .pagina-cliente-conteudo:has(.dados-documento) > :is(.tabela-lateral,.total-documento) {
+                display:flow-root;
+            }
+            .modelo-lateral .pagina-cliente-conteudo:has(.dados-documento) > .tabela-lateral table {
+                margin-top:0 !important;
                 font-size:11px !important;
             }
-            .modelo-lateral .pagina-cliente-conteudo:has(.dados-documento) > table td { padding:6px 3px !important; }
-            .modelo-lateral .pagina-cliente-conteudo:has(.dados-documento) > :is(.total-documento,[data-descricao-cliente]) { margin-left:32%; }
+            .modelo-lateral .pagina-cliente-conteudo:has(.dados-documento) > .tabela-lateral td { padding:6px 3px !important; }
+            .bloco-descritivo { margin-top:20px; }
+            .bloco-descritivo:first-child { margin-top:0; }
+            .bloco-descritivo h3 { margin:0 0 5px; font-size:1.6em; font-weight:bold; }
+            .bloco-descritivo .titulo-centralizado { text-align:center; }
+            .bloco-descritivo .texto-descritivo-pdf { white-space:pre-wrap; text-align:justify; }
             .pagina-cliente-rodape {
                 position:absolute;
                 bottom:9mm;
                 left:20mm;
                 right:20mm;
-                display:flex;
-                justify-content:space-between;
                 color:#595959;
                 font-size:10px;
             }
@@ -673,7 +720,7 @@ Remover logo
                 content:"";
                 position:absolute;
                 inset:0;
-                background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22320%22 height=%22160%22 viewBox=%220 0 320 160%22%3E%3Cg transform=%22rotate(-25 160 80)%22 fill=%22%23e93434%22 fill-opacity=%22.85%22 font-family=%22Arial,sans-serif%22 font-weight=%22bold%22 text-anchor=%22middle%22%3E%3Ctext x=%22160%22 y=%2275%22 font-size=%2228%22%3EORÇAMENTO FÁCIL%3C/text%3E%3Ctext x=%22160%22 y=%22102%22 font-size=%2220%22%3EDOCUMENTO NÃO VÁLIDO%3C/text%3E%3C/g%3E%3C/svg%3E');
+                background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22320%22 height=%22160%22 viewBox=%220 0 320 160%22%3E%3Cg transform=%22rotate(-25 160 80)%22 fill=%22%23e93434%22 fill-opacity=%22.20%22 font-family=%22Arial,sans-serif%22 font-weight=%22bold%22 text-anchor=%22middle%22%3E%3Ctext x=%22160%22 y=%2275%22 font-size=%2228%22%3EORÇAMENTO FÁCIL%3C/text%3E%3Ctext x=%22160%22 y=%22102%22 font-size=%2220%22%3EDOCUMENTO NÃO VÁLIDO%3C/text%3E%3C/g%3E%3C/svg%3E');
                 background-repeat:repeat;
                 z-index:10;
                 pointer-events:none;
@@ -711,6 +758,12 @@ Remover logo
             <button id="botaoGerarPDF" onclick="gerarPDFs()" disabled>Gerar PDFs</button>
             <output id="precoGeracao" aria-live="polite" aria-label="Valor total para gerar os PDFs"></output>
         </div>
+        <dialog id="andamentoGeracao" class="painel-andamento" aria-labelledby="tituloAndamento">
+            <span class="indicador-orcamento" aria-hidden="true"></span>
+            <p class="nome-andamento">Orçamento Fácil</p>
+            <h2 id="tituloAndamento">Abrindo pagamento…</h2>
+            <p id="textoAndamento" role="status">Você será encaminhado ao Stripe.</p>
+        </dialog>
     </div>
 
 </div>
@@ -795,29 +848,31 @@ let catalogoModelos = [];
 let calcularPrecoGeracao;
 let cupomAplicado = "";
 let restaurandoOrcamento = false;
+let perfilAplicado = null;
 
 const idSessao = sessionStorage.getItem("orcamentoSessao") || Date.now().toString();
 sessionStorage.setItem("orcamentoSessao", idSessao);
 
 window.onload = function(){
+    const salvo = localStorage.getItem("orcamentoFacil_" + idSessao);
+    restaurarOrcamento(salvo ? JSON.parse(salvo) : null);
+    validade_dias.addEventListener("input", atualizarVencimento);
+    prepararDadosLocais();
+};
 
+function restaurarOrcamento(dados){
     restaurandoOrcamento = true;
     const blocosMinimizados = [];
-    const dadosSalvos = localStorage.getItem("orcamentoFacil_" + idSessao)
-
-    if(dadosSalvos){
-
-        const dados = JSON.parse(dadosSalvos);
+    if(dados){
+        document.getElementById("linhasArea").replaceChildren();
+        document.getElementById("itens").replaceChildren();
+        montarTextosDescritivos(dados.textosDescritivos || [{ texto:dados.camposFixos?.descricao_cliente || "" }]);
         if(catalogoModelos.some(modelo => modelo.id === dados.modeloSelecionado)){
             modeloSelecionado = dados.modeloSelecionado;
         }
 
-        if(dados.logoBase64){
-    logoBase64 = dados.logoBase64;
-}
-if(dados.posicaoLogo){
-    posicaoLogo = dados.posicaoLogo;
-}
+        perfilAplicado = dados.perfilAplicado || null;
+        restaurarLogo(dados);
         contadorArea = dados.contadorArea || 0;
         contadorItens = 0;
 
@@ -828,7 +883,7 @@ if(dados.posicaoLogo){
          }
         
         Object.entries(dados.camposFixos || {}).forEach(([id, valor])=>{
-            if(document.getElementById(id)){
+            if(id !== "descricao_cliente" && document.getElementById(id)){
                 document.getElementById(id).value = valor;
             }
         });
@@ -882,6 +937,15 @@ if(dados.posicaoLogo){
                 document.getElementById(`quant_final_${i}`).value =
                     parseFloat(item.quantFinal).toFixed(2);
             }
+            if(item.quantOriginal !== undefined){
+                document.getElementById(`quant_${i}`).dataset.original = item.quantOriginal;
+            }
+            if(item.arredondamento === "cima" || item.arredondamento === "baixo"){
+                const classe = item.arredondamento === "cima" ? "btnArredCima" : "btnArredBaixo";
+                const botao = document.querySelector(`.${classe}[data-item="${i}"]`);
+                botao.dataset.ativo = "true";
+                botao.textContent = "Reverter";
+            }
             if(item.minimizado){
                 blocosMinimizados.push([document.getElementById(`desc_${i}`).closest(".blocoItem"), "item"]);
             }
@@ -901,11 +965,7 @@ if(dados.posicaoLogo){
     for(const [bloco, tipo] of blocosMinimizados) executarMinimizacao(bloco, tipo);
     restaurandoOrcamento = false;
     atualizarPreview();
-
-    validade_dias.addEventListener("input", atualizarVencimento);
-
-    
-};
+}
 
 document.addEventListener("visibilitychange", function(){
 
@@ -916,14 +976,13 @@ document.addEventListener("visibilitychange", function(){
 });
 
 let logoBase64 = "";
+let operacaoLogo = 0;
 
 function carregarLogo(event){
     const file = event.target.files[0];
 
     if(!file) return;
-
-    // mostra nome do arquivo
-    document.getElementById("nomeArquivoLogo").innerText = file.name;
+    const operacao = ++operacaoLogo;
 
     const reader = new FileReader();
 
@@ -932,6 +991,7 @@ function carregarLogo(event){
     const img = new Image();
 
     img.onload = function(){
+        if(operacao !== operacaoLogo) return;
 
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
@@ -946,6 +1006,8 @@ function carregarLogo(event){
 
         // salva versão comprimida
         logoBase64 = canvas.toDataURL("image/jpeg", 0.7);
+        document.getElementById("nomeArquivoLogo").textContent = file.name;
+        atualizarOpcaoLogo(true);
 
         salvarNoStorage();
         atualizarPreview();
@@ -1809,7 +1871,7 @@ function atualizarPreview(){
     // LOGO
     html += `<div style="text-align:${alinhamentoLogo}; margin-bottom:10px;">`;
 
-    if(logoBase64){
+    if(logomarcaEmUso()){
         html += `
             <img src="${logoBase64}" style="
                 width:200px;
@@ -1954,12 +2016,15 @@ html += `
     </div>
     `;
 
-    let descCliente = document.getElementById("descricao_cliente").value.trim();
-
-    if(descCliente){
-        html += `
-        <div data-descricao-cliente style="margin-top:20px; white-space:pre-wrap; text-align:justify;">${escaparTextoCliente(descCliente)}</div>
-        `;
+    for(const descricao of lerTextosDescritivos()){
+        const titulo = descricao.titulo.trim();
+        if(!titulo && !descricao.texto.trim()) continue;
+        html += `<section class="bloco-descritivo" data-descricao-cliente data-nova-pagina="${descricao.novaPagina}">`;
+        if(titulo) html += `<h3${descricao.centralizado ? ' class="titulo-centralizado"' : ""}>${escaparTextoCliente(titulo)}</h3>`;
+        if(descricao.texto.trim()){
+            html += `<div class="texto-descritivo-pdf">${escaparTextoCliente(descricao.texto)}</div>`;
+        }
+        html += "</section>";
     }
 
     paginarPreviewCliente(html);
@@ -1969,6 +2034,43 @@ html += `
 }
 
 const moedaGeracao = new Intl.NumberFormat("pt-BR", { style:"currency", currency:"BRL" });
+
+const editorTextos = document.getElementById("textosDescritivos");
+const modeloTextoDescritivo = document.getElementById("modeloTextoDescritivo");
+
+function adicionarTextoDescritivo(descricao = {}){
+    const editor = modeloTextoDescritivo.content.firstElementChild.cloneNode(true);
+    const titulo = editor.querySelector(".titulo-descritivo");
+    const texto = editor.querySelector(".corpo-descritivo");
+    if(!editorTextos.children.length) texto.id = "descricao_cliente";
+    titulo.value = descricao.titulo || "";
+    texto.value = descricao.texto || "";
+    editor.querySelector(".centralizar-descritivo").checked = descricao.centralizado === true;
+    editor.querySelector(".quebra-descritivo").checked = descricao.novaPagina === true;
+    editorTextos.append(editor);
+    return titulo;
+}
+
+function montarTextosDescritivos(descricoes = []){
+    editorTextos.replaceChildren();
+    if(!descricoes.length) adicionarTextoDescritivo();
+    else descricoes.forEach(descricao => adicionarTextoDescritivo(descricao));
+}
+
+function lerTextosDescritivos(){
+    return Array.from(editorTextos.children, editor => ({
+        titulo: editor.querySelector(".titulo-descritivo").value,
+        texto: editor.querySelector(".corpo-descritivo").value,
+        centralizado: editor.querySelector(".centralizar-descritivo").checked,
+        novaPagina: editor.querySelector(".quebra-descritivo").checked
+    }));
+}
+
+montarTextosDescritivos();
+document.getElementById("inserirTextoDescritivo").addEventListener("click", () => {
+    adicionarTextoDescritivo().focus();
+    atualizarPreview();
+});
 
 function configurarModelos(modelos, precos, calcularPreco){
     catalogoModelos = modelos;
@@ -2016,7 +2118,7 @@ function atualizarPrecoEModelo(){
     acrescimo.hidden = !comAcrescimo;
     acrescimo.textContent = comAcrescimo ? "+ " + moedaGeracao.format(modelo.acrescimo / 100) : "";
     document.getElementById("nomeModelo").textContent = modelo.nome;
-    document.getElementById("precoGeracao").textContent = moedaGeracao.format(cupomAplicado ? 0 : calcularPrecoGeracao(modelo, !!logoBase64) / 100);
+    document.getElementById("precoGeracao").textContent = moedaGeracao.format(cupomAplicado ? 0 : calcularPrecoGeracao(modelo, logomarcaEmUso()) / 100);
     document.querySelectorAll("#pontosModelos button").forEach(botao => {
         botao.setAttribute("aria-current", String(botao.dataset.modelo === modelo.id));
     });
@@ -2061,11 +2163,14 @@ function paginarPreviewCliente(html){
         }
     }
 
-    function adicionarDescricao(bloco){
-        let restante = Array.from(bloco.textContent);
+    function adicionarTrechos(bloco, campo, titulo = null){
+        let restante = Array.from(campo.textContent);
         while(restante.length){
             const trecho = bloco.cloneNode(false);
-            trecho.textContent = restante.join("");
+            const texto = campo.cloneNode(false);
+            if(titulo) trecho.append(titulo.cloneNode(true));
+            trecho.append(texto);
+            texto.textContent = restante.join("");
             conteudo.append(trecho);
             if(conteudo.offsetHeight <= altura) return;
 
@@ -2073,45 +2178,65 @@ function paginarPreviewCliente(html){
             let fim = restante.length;
             while(inicio < fim){
                 const meio = Math.ceil((inicio + fim) / 2);
-                trecho.textContent = restante.slice(0, meio).join("");
+                texto.textContent = restante.slice(0, meio).join("");
                 if(conteudo.offsetHeight <= altura) inicio = meio;
                 else fim = meio - 1;
             }
 
-            if(inicio){
-                const fimPalavra = restante.slice(0, inicio).join("").search(/\s+\S*$/u);
-                const corte = fimPalavra > 0 && !/\s/u.test(restante[inicio] || "")
-                    ? Array.from(restante.slice(0, inicio).join("").slice(0, fimPalavra + 1)).length
-                    : inicio;
-                trecho.textContent = restante.slice(0, corte).join("");
-                restante = restante.slice(corte);
-            }else{
+            if(!inicio && conteudo.children.length > 1){
                 trecho.remove();
+                novaPagina();
+                continue;
             }
-            novaPagina();
+            if(!inicio && titulo){
+                trecho.remove();
+                adicionarTrechos(bloco, titulo);
+                titulo = null;
+                continue;
+            }
+            const trechoPossivel = restante.slice(0, Math.max(1, inicio)).join("");
+            const fimPalavra = trechoPossivel.search(/\s+\S*$/u);
+            const corte = fimPalavra > 0 && !/\s/u.test(restante[inicio] || "")
+                ? Array.from(trechoPossivel.slice(0, fimPalavra + 1)).length
+                : Math.max(1, inicio);
+            texto.textContent = restante.slice(0, corte).join("");
+            restante = restante.slice(corte);
+            titulo = null;
+            if(restante.length) novaPagina();
         }
     }
 
     novaPagina();
     for(const bloco of Array.from(origem.content.children)){
         if(bloco.matches("[data-descricao-cliente]")){
-            adicionarDescricao(bloco);
+            if(bloco.dataset.novaPagina === "true" && conteudo.children.length) novaPagina();
+            const titulo = bloco.querySelector("h3");
+            const texto = bloco.querySelector(".texto-descritivo-pdf");
+            if(texto) adicionarTrechos(bloco, texto, titulo);
+            else adicionarTrechos(bloco, titulo);
         }else if(bloco.matches("table")){
             const [cabecalho, ...linhas] = Array.from(bloco.rows);
-            let tabela = bloco.cloneNode(false);
-            let corpo = tabela.createTBody();
-            corpo.append(cabecalho.cloneNode(true));
-            adicionarBloco(tabela);
+            function montarTabela(){
+                const tabela = bloco.cloneNode(false);
+                const corpo = tabela.createTBody();
+                corpo.append(cabecalho.cloneNode(true));
+                if(modeloSelecionado !== "lateral") return { grupo:tabela, corpo };
+                const grupo = document.createElement("div");
+                grupo.className = "tabela-lateral";
+                grupo.append(tabela);
+                return { grupo, corpo };
+            }
+            let { grupo, corpo } = montarTabela();
+            adicionarBloco(grupo);
             for(const linha of linhas){
                 corpo.append(linha);
                 if(conteudo.offsetHeight > altura && (corpo.rows.length > 2 || conteudo.children.length > 1)){
                     linha.remove();
-                    if(corpo.rows.length === 1) tabela.remove();
+                    if(corpo.rows.length === 1) grupo.remove();
                     novaPagina();
-                    tabela = bloco.cloneNode(false);
-                    corpo = tabela.createTBody();
-                    corpo.append(cabecalho.cloneNode(true), linha);
-                    conteudo.append(tabela);
+                    ({ grupo, corpo } = montarTabela());
+                    corpo.append(linha);
+                    conteudo.append(grupo);
                 }
             }
         }else{
@@ -2122,19 +2247,8 @@ function paginarPreviewCliente(html){
     paginas.forEach((pagina, indice) => {
         const rodape = document.createElement("footer");
         rodape.className = "pagina-cliente-rodape";
-        const marca = document.createElement("span");
-        marca.textContent = "Orçamento Fácil";
-        const numero = document.createElement("span");
-        numero.textContent = `${indice + 1} de ${paginas.length}`;
-        numero.style.position = "absolute";
-        if(alinhamento === "center"){
-            numero.style.left = "50%";
-            numero.style.transform = "translateX(-50%)";
-        }else{
-            numero.style[alinhamento] = "0";
-        }
-        if(alinhamento === "left") marca.style.marginLeft = "auto";
-        rodape.append(marca, numero);
+        rodape.style.textAlign = alinhamento;
+        rodape.textContent = `${indice + 1} de ${paginas.length}`;
         pagina.append(rodape);
     });
     destino.style.removeProperty("--escala-previa");
@@ -2585,9 +2699,15 @@ async function gerarPDFs(){
     const botao = document.getElementById("botaoGerarPDF");
     if(!modelo || botao.disabled) return;
     botao.disabled = true;
+    const cupom = cupomAplicado;
+    const painel = document.getElementById("andamentoGeracao");
     try {
-        const temLogo = !!logoBase64;
-        const cupom = cupomAplicado;
+        document.getElementById("tituloAndamento").textContent = cupom ? "Validando seu cupom…" : "Abrindo pagamento…";
+        document.getElementById("textoAndamento").textContent = cupom
+            ? "Estamos autorizando a geração dos seus PDFs."
+            : "Você será encaminhado ao Stripe.";
+        painel.showModal();
+        const temLogo = logomarcaEmUso();
         const documento = {
             htmlCliente: prepararPDFCliente(),
             htmlControle: prepararPDFControle(),
@@ -2612,10 +2732,19 @@ async function gerarPDFs(){
         if(cupom) sessionStorage.removeItem("of-pedido-cupom");
         window.location.href = data.url;
     } catch(erro){
-        alert(erro.message);
+        painel.close();
         botao.disabled = false;
+        alert(erro.message);
     }
 }
+
+document.getElementById("andamentoGeracao").addEventListener("cancel", evento => evento.preventDefault());
+window.addEventListener("pageshow", evento => {
+    if(evento.persisted){
+        document.getElementById("andamentoGeracao").close();
+        document.getElementById("botaoGerarPDF").disabled = !catalogoModelos.length;
+    }
+});
 
 // ---------- FUNÇÃO DE ENVIO AO BACKEND ----------
 async function gerarPDFBackend(html, filename) {
@@ -2726,16 +2855,18 @@ document.addEventListener("click", function(e){
     atualizarPreview();
 });
 
-function salvarNoStorage(){
-    if(restaurandoOrcamento) return;
-
+function capturarOrcamento(){
     const dados = {
 
         contadorArea,
         contadorItens,
         logoBase64,
+        usarLogo: logomarcaEmUso(),
         posicaoLogo,
+        nomeLogo: document.getElementById("nomeArquivoLogo").textContent,
+        perfilAplicado,
         modeloSelecionado,
+        textosDescritivos: lerTextosDescritivos(),
 
         camposFixos: {
             tituloOrcamento: tituloOrcamento.value,
@@ -2752,8 +2883,7 @@ function salvarNoStorage(){
             imposto: imposto.value,
             rt: rt.value,
             descricao_interna: descricao_interna.value,
-            alinhamentoPaginacao: document.getElementById("alinhamentoPaginacao").value,
-            descricao_cliente: descricao_cliente.value
+            alinhamentoPaginacao: document.getElementById("alinhamentoPaginacao").value
         },
 
         ambientes: [],
@@ -2792,6 +2922,9 @@ function salvarNoStorage(){
             quant: document.getElementById(`quant_${i}`)?.value || "",
             perc: document.getElementById(`perc_${i}`)?.value || "",
             quantFinal: document.getElementById(`quant_${i}`)?.dataset.final || "",
+            quantOriginal: document.getElementById(`quant_${i}`)?.dataset.original,
+            arredondamento: item.querySelector(".btnArredCima[data-ativo]") ? "cima"
+                : item.querySelector(".btnArredBaixo[data-ativo]") ? "baixo" : undefined,
             unidade: document.getElementById(`unidade_${i}`)?.value || "",
             valor: document.getElementById(`valor_${i}`)?.value || "",
             imp: document.getElementById(`imp_${i}`)?.checked || false,
@@ -2800,7 +2933,12 @@ function salvarNoStorage(){
 
     });
 
-   localStorage.setItem("orcamentoFacil_" + idSessao, JSON.stringify(dados));
+    return dados;
+}
+
+function salvarNoStorage(){
+    if(restaurandoOrcamento) return;
+    localStorage.setItem("orcamentoFacil_" + idSessao, JSON.stringify(capturarOrcamento()));
 }
 function reativarEventos(){
 
@@ -2849,11 +2987,16 @@ function novoOrcamento(){
         delete campo.dataset.final;
         delete campo.dataset.original;
     });
+    montarTextosDescritivos();
 
     // Valores padrão importantes
     imposto.value = 0;
     rt.value = 0;
     validade_dias.value = 30;
+    if(perfilAplicado){
+        perfilAplicado.anterior = { campos:{ empresa_nome:"", empresa_doc:"", empresa_tel:"" } };
+        if(perfisEmpresa[perfilAplicado.indice]) preencherPerfilEmpresa(perfisEmpresa[perfilAplicado.indice]);
+    }
 
     document.getElementById("total").innerText = "0,00";
     document.getElementById("totalArea").innerText = "0,00";
@@ -2893,18 +3036,32 @@ function mascaraMoeda(campo){
 
 let posicaoLogo = "left"; // padrão
 
-function definirPosicaoLogo(pos, botao){
+function marcarPosicaoLogo(pos){
+    posicaoLogo = pos === "right" ? "right" : "left";
+    document.querySelectorAll(".btnPosLogo").forEach(btn =>
+        btn.classList.toggle("ativo", btn.dataset.posicao === posicaoLogo));
+}
 
-    posicaoLogo = pos;
+function restaurarLogo(dados){
+    operacaoLogo++;
+    logoBase64 = dados.logoBase64 || "";
+    document.getElementById("empresa_logo").value = "";
+    document.getElementById("nomeArquivoLogo").textContent = logoBase64 ? (dados.nomeLogo || "Logo salva") : "";
+    marcarPosicaoLogo(dados.posicaoLogo);
+    atualizarOpcaoLogo(dados.usarLogo !== false);
+}
 
-    // remove ativo de todos
-    document.querySelectorAll(".btnPosLogo")
-        .forEach(btn => btn.classList.remove("ativo"));
+function atualizarOpcaoLogo(usar){
+    document.getElementById("opcaoUsarLogo").hidden = !logoBase64;
+    document.getElementById("usarLogoNoOrcamento").checked = !!logoBase64 && usar;
+}
 
-    // ativa o clicado
-    botao.classList.add("ativo");
+function logomarcaEmUso(){
+    return !!logoBase64 && document.getElementById("usarLogoNoOrcamento").checked;
+}
 
-    salvarNoStorage();
+function definirPosicaoLogo(pos){
+    marcarPosicaoLogo(pos);
     atualizarPreview();
 }
 
@@ -2915,14 +3072,7 @@ function removerLogo(){
     }
 
     // limpa variável principal
-    logoBase64 = "";
-
-    // ⚠️ IMPORTANTE: usa seu sistema atual
-    salvarNoStorage();
-
-    // limpa input
-    const input = document.getElementById("empresa_logo");
-    if(input) input.value = "";
+    restaurarLogo({ posicaoLogo });
 
     // atualiza tudo
     atualizarPreview();
@@ -2932,6 +3082,8 @@ const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
 </script>
 <script src="./modelos-orcamento.js"></script>
+<script src="./dados-locais.js"></script>
+<script src="./perfis-rascunho.js"></script>
 <script>
     const { MODELOS, PRECOS, precoOrcamento } = globalThis.catalogoOrcamentoFacil;
     configurarModelos(MODELOS, PRECOS, precoOrcamento);

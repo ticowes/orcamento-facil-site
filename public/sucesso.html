@@ -1,130 +1,124 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Download concluído</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Download do orçamento · Orçamento Fácil</title>
+<link rel="stylesheet" href="./andamento.css">
+<style>
+    body { margin:0; background:#e4d7c9; }
+    main { min-height:100svh; box-sizing:border-box; display:grid; place-items:center; padding:24px 0; }
+    .acoes-download { display:grid; gap:10px; justify-items:center; margin-top:22px; }
+    .acoes-download button {
+        min-height:44px; width:100%; font:inherit; font-weight:bold; padding:10px 14px;
+        color:white; background:#234f81; border:1px solid #234f81; border-radius:7px; cursor:pointer;
+    }
+    .acoes-download a { color:#244b73; padding:8px 2px; }
+    .acoes-download [hidden],.painel-andamento [hidden] { display:none; }
+</style>
 </head>
-
 <body>
+<main>
+    <section class="painel-andamento" aria-labelledby="status-download">
+        <span id="carregando" class="indicador-orcamento" aria-hidden="true" hidden></span>
+        <p class="nome-andamento">Orçamento Fácil</p>
+        <div role="status">
+            <h1 id="status-download">Preparando seus PDFs…</h1>
+            <p id="detalhe-download">Estamos reunindo o orçamento do cliente e o controle interno em um arquivo ZIP.</p>
+        </div>
+        <div class="acoes-download">
+            <button type="button" id="baixar" hidden>Baixar novamente</button>
+            <a id="voltar" href="./">Voltar para o Orçamento Fácil</a>
+        </div>
+    </section>
+</main>
 
 <script>
-
 const MAX_DOWNLOADS = 3;
+const botaoBaixar = document.getElementById("baixar");
+const carregando = document.getElementById("carregando");
 
-async function baixarPDF(session_id, id, cupom){
-
-    const parametros = new URLSearchParams({ id });
-    if(session_id) parametros.set("session_id", session_id);
-    const headers = cupom ? { Authorization: "Bearer " + cupom } : {};
-    const resp = await fetch(`/api/gerar-pdfs?${parametros}`, { headers });
-
-    if(!resp.ok){
-        alert("Erro ao gerar download.");
-        return false;
-    }
-
-    // 🔥 PEGA O NOME DO BACKEND
-    const contentDisposition = resp.headers.get("Content-Disposition");
-
-    let nomeArquivo = "orcamento.zip"; // fallback
-
-    if(contentDisposition){
-        const match = contentDisposition.match(/filename="(.+)"/);
-        if(match && match[1]){
-            nomeArquivo = match[1];
-        }
-    }
-
-    const blob = await resp.blob();
-    const url = window.URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-
-    // 🔥 AGORA SIM: USA O NOME CORRETO
-    a.download = nomeArquivo;
-
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-    window.URL.revokeObjectURL(url);
-    return true;
+function mostrarEstado(titulo, detalhe, emAndamento = false, acao = ""){
+    document.getElementById("status-download").textContent = titulo;
+    document.getElementById("detalhe-download").textContent = detalhe;
+    carregando.hidden = !emAndamento;
+    botaoBaixar.hidden = !acao;
+    botaoBaixar.textContent = acao;
 }
 
-async function iniciar(){
+async function baixarPDF(sessionId, id, cupom){
+    const parametros = new URLSearchParams({ id });
+    if(sessionId) parametros.set("session_id", sessionId);
+    const headers = cupom ? { Authorization:"Bearer " + cupom } : {};
+    const resposta = await fetch(`/api/gerar-pdfs?${parametros}`, { headers });
+    if(!resposta.ok) throw new Error("Download indisponível.");
+    const nome = resposta.headers.get("Content-Disposition")?.match(/filename="([^"]+)"/)?.[1] || "orcamento.zip";
+    const url = URL.createObjectURL(await resposta.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = nome;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
-    const params = new URLSearchParams(window.location.search);
-
-    const session_id = params.get("session_id");
-    const id = params.get("id");
-    const cupom = new URLSearchParams(location.hash.slice(1)).get("cupom");
-
-    if((!session_id && !cupom) || !id){
-
-        document.body.innerHTML =
-        "<h2>Erro: parâmetros de pagamento não encontrados.</h2>";
-
+function iniciar(){
+    if(location.protocol === "file:"){
+        document.getElementById("voltar").href = "./index.html";
+        mostrarEstado("Demonstração do download", "Veja como o aplicativo avisa que os PDFs estão sendo preparados.", false, "Simular download");
+        botaoBaixar.onclick = () => {
+            mostrarEstado("Preparando seus PDFs…", "Estamos reunindo os dois documentos em um arquivo ZIP.", true);
+            setTimeout(() => mostrarEstado("Download iniciado", "Esta é uma demonstração. Nenhum arquivo foi baixado.", false, "Simular novamente"), 1000);
+        };
         return;
     }
 
-    const chave = "downloads_" + (session_id || id);
+    const params = new URLSearchParams(location.search);
+    const sessionId = params.get("session_id");
+    const id = params.get("id");
+    const cupom = new URLSearchParams(location.hash.slice(1)).get("cupom");
+    if((!sessionId && !cupom) || !id){
+        mostrarEstado("Download indisponível", "Volte ao Orçamento Fácil para acessar um pedido válido.");
+        return;
+    }
 
-    document.body.innerHTML = `
-    <div style="font-family:Arial;text-align:center;margin-top:60px">
-
-        <h2 id="status-download">Preparando seu download…</h2>
-
-        <p>Verifique a pasta de downloads do seu navegador.</p>
-
-        <br>
-
-        <button id="baixar">Baixar novamente</button>
-
-        <br><br>
-
-        <button id="voltar">Voltar para o Orçamento Fácil</button>
-
-        <br><br>
-
-    </div>
-    `;
-
-    const botaoBaixar = document.getElementById("baixar");
-    const statusDownload = document.getElementById("status-download");
-    botaoBaixar.onclick = async function(){
+    const chave = "downloads_" + (sessionId || id);
+    let emAndamento = false;
+    async function tentarBaixar(){
+        if(emAndamento) return;
         const downloads = Number(sessionStorage.getItem(chave)) || 0;
-
         if(downloads >= MAX_DOWNLOADS){
-            alert("Limite de downloads atingido.");
+            mostrarEstado("Limite de downloads atingido", "Confira os arquivos já baixados no seu navegador.");
             return;
         }
-
-        botaoBaixar.disabled = true;
+        emAndamento = true;
+        mostrarEstado("Preparando seus PDFs…", "Estamos reunindo o orçamento do cliente e o controle interno em um arquivo ZIP.", true);
         try {
-            if(await baixarPDF(session_id, id, cupom)){
-                sessionStorage.setItem(chave, downloads + 1);
-                statusDownload.textContent = "Download concluído com sucesso.";
-            }else statusDownload.textContent = "Download indisponível. Tente novamente.";
+            await baixarPDF(sessionId, id, cupom);
+            sessionStorage.setItem(chave, downloads + 1);
+            mostrarEstado(
+                "Download iniciado",
+                "Seu ZIP contém o orçamento do cliente e o controle interno. Confira a pasta de downloads.",
+                false,
+                downloads + 1 < MAX_DOWNLOADS ? "Baixar novamente" : ""
+            );
         } catch {
-            statusDownload.textContent = "Download indisponível. Tente novamente.";
+            mostrarEstado(
+                "O download não começou",
+                "Você pode tentar baixar este mesmo pedido novamente por aqui.",
+                false,
+                "Tentar baixar novamente"
+            );
         } finally {
-            botaoBaixar.disabled = false;
+            emAndamento = false;
         }
-    };
-
-    // 🔙 VOLTAR
-    document.getElementById("voltar").onclick = function(){
-        window.location.href = "/";
-    };
-
-    if((Number(sessionStorage.getItem(chave)) || 0) < MAX_DOWNLOADS) await botaoBaixar.onclick();
-    else statusDownload.textContent = "Limite de downloads atingido.";
+    }
+    botaoBaixar.onclick = tentarBaixar;
+    tentarBaixar();
 }
 
-window.onload = iniciar;
-
+iniciar();
 </script>
-
 </body>
 </html>
